@@ -17,6 +17,7 @@ import {
 import type { MatchState, TargetScore } from './game/types'
 import { DiceTray } from './components/DiceTray'
 import { MatchSetup } from './components/MatchSetup'
+import { BadgesPanel } from './components/BadgesPanel'
 import { LoadedDicePanel } from './components/LoadedDicePanel'
 import { RulesPanel } from './components/RulesPanel'
 import { ScoreBoard } from './components/ScoreBoard'
@@ -163,6 +164,7 @@ export default function App() {
         />
         <RulesPanel />
         <LoadedDicePanel />
+        <BadgesPanel />
         <DebugHud state={state} />
       </div>
     )
@@ -198,6 +200,7 @@ export default function App() {
 
       <RulesPanel />
       <LoadedDicePanel />
+      <BadgesPanel />
       <DebugHud state={state} />
     </div>
   )
