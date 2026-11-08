@@ -5,8 +5,9 @@ alwaysApply: true
 
 # Git commits
 
-- Create or use a named branch for work; do not commit only on an anonymous detached HEAD when a branch is expected.
-- Use conventional/semantic commit messages (`feat`, `fix`, `chore`, `refactor`, `style`, `docs`, `test`) with one concern per commit.
-- **Never** add `Co-authored-by` trailers (including Cursor or any agent identity).
-- **Never** pass `--trailer` for co-authors when committing.
-- Prefer a plain `git commit -m` (or `-F`) message only — no co-author metadata.
+- Work on a named branch (create one if needed before committing).
+- Use conventional/semantic messages (`feat`, `fix`, `chore`, `refactor`, `style`, `docs`, `test`) with **one concern per commit**.
+- **Never** add `Co-authored-by` trailers (including Cursor or any agent).
+- **Never** pass `--trailer` with co-author metadata.
+- Commit with message only (`-m` / `-F`). If the environment injects a Co-authored-by trailer, rewrite the commit with `git commit-tree` (via the real `git.exe`) so the final history has **no** co-author trailers.
+- Do not leave injected trailer text inside the commit body either.
