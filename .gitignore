@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Local env / PartyKit cache (keep .env.example)
+.env
+.env.*
+!.env.example
+.partykit/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
