@@ -1,0 +1,12 @@
+---
+description: Git commit conventions for this project
+alwaysApply: true
+---
+
+# Git commits
+
+- Create or use a named branch for work; do not commit only on an anonymous detached HEAD when a branch is expected.
+- Use conventional/semantic commit messages (`feat`, `fix`, `chore`, `refactor`, `style`, `docs`, `test`) with one concern per commit.
+- **Never** add `Co-authored-by` trailers (including Cursor or any agent identity).
+- **Never** pass `--trailer` for co-authors when committing.
+- Prefer a plain `git commit -m` (or `-F`) message only — no co-author metadata.
