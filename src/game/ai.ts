@@ -8,7 +8,8 @@ import type { AiAction, Face, MatchState } from './types'
  * - Otherwise keep rolling.
  */
 export function chooseAiAction(state: MatchState): AiAction | null {
-  if (state.phase !== 'playing' || state.currentPlayer !== 'ai') return null
+  if (state.phase !== 'playing' || state.mode !== 'solo') return null
+  if (state.currentPlayer !== 'p2') return null
 
   if (state.turnPhase === 'need_roll') {
     return { type: 'roll' }
@@ -51,7 +52,7 @@ function chooseHold(
   }
 
   const projected = state.turnScore + best.score
-  if (projected >= state.targetScore - state.scores.ai) {
+  if (projected >= state.targetScore - state.scores.p2) {
     return best
   }
 
@@ -60,17 +61,17 @@ function chooseHold(
 
 function shouldBank(state: MatchState): boolean {
   const { turnScore, diceToRoll, scores, targetScore } = state
-  const aiScore = scores.ai
+  const aiScore = scores.p2
 
   if (aiScore + turnScore >= targetScore) return true
   if (turnScore >= 400) return true
   if (diceToRoll <= 2 && turnScore >= 250) return true
   if (diceToRoll <= 1 && turnScore >= 150) return true
 
-  const lead = aiScore - scores.human
+  const lead = aiScore - scores.p1
   if (lead >= 800 && turnScore >= 250) return true
 
-  const behind = scores.human - aiScore
+  const behind = scores.p1 - aiScore
   if (behind >= 1000 && turnScore < 500 && diceToRoll >= 3) return false
 
   return turnScore >= 300 && diceToRoll <= 3

@@ -1,6 +1,9 @@
 export type Face = 1 | 2 | 3 | 4 | 5 | 6
 
-export type PlayerId = 'human' | 'ai'
+/** Shared seats: solo maps p1=you, p2=AI; online maps p1=host, p2=guest. */
+export type PlayerId = 'p1' | 'p2'
+
+export type MatchMode = 'solo' | 'online'
 
 export type TargetScore = 1500 | 4000
 
@@ -29,6 +32,7 @@ export interface TableDie {
 export interface MatchState {
   phase: MatchPhase
   turnPhase: TurnPhase
+  mode: MatchMode
   targetScore: TargetScore
   scores: Record<PlayerId, number>
   currentPlayer: PlayerId
@@ -43,7 +47,7 @@ export interface MatchState {
   pendingRollSpecs: DieSpec[] | null
   /** Bumps on every physical throw so the UI can replay scatter animation. */
   throwId: number
-  /** Human's six die types (debug loadout; ordinary in normal play). */
+  /** P1 die types (debug loadout in solo; ordinary fair dice online). */
   humanLoadout: string[]
   message: string | null
   winner: PlayerId | null
