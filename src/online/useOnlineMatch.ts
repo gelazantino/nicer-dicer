@@ -1,12 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import PartySocket from 'partysocket'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
   ClientToServerMessage,
   OnlineRoomSnapshot,
   ServerToClientMessage,
 } from '../game/onlineProtocol'
-import { getPartyKitHost } from './partyHost'
 import { getOrCreateSeatToken } from './seatToken'
+import { buildMatchSocketUrl, getMatchServerWsBase } from './wsUrl'
 
 export interface OnlineSession {
   roomCode: string
@@ -14,43 +13,44 @@ export interface OnlineSession {
 }
 
 export function useOnlineMatch(session: OnlineSession | null) {
-  const host = useMemo(() => getPartyKitHost(), [])
+  const host = getMatchServerWsBase()
   const [snapshot, setSnapshot] = useState<OnlineRoomSnapshot | null>(null)
   const [connectionState, setConnectionState] = useState<
     'idle' | 'connecting' | 'open' | 'closed' | 'error'
   >('idle')
   const [lastError, setLastError] = useState<string | null>(null)
-  const socketRef = useRef<PartySocket | null>(null)
+  const socketRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
-    if (!session || !host) {
+    if (!session) {
       socketRef.current?.close()
       socketRef.current = null
       setSnapshot(null)
-      setConnectionState(session && !host ? 'error' : 'idle')
-      if (session && !host) {
-        setLastError('Online play needs VITE_PARTYKIT_HOST (run partykit dev).')
-      }
+      setConnectionState('idle')
+      return
+    }
+
+    const url = buildMatchSocketUrl(session.roomCode, session.seatToken)
+    if (!url) {
+      setSnapshot(null)
+      setConnectionState('error')
+      setLastError('Online play needs VITE_WS_URL (run npm run dev:server).')
       return
     }
 
     setConnectionState('connecting')
     setLastError(null)
 
-    const socket = new PartySocket({
-      host,
-      room: session.roomCode,
-      query: { seatToken: session.seatToken },
-    })
+    const socket = new WebSocket(url)
     socketRef.current = socket
 
-    const onOpen = () => setConnectionState('open')
-    const onClose = () => setConnectionState('closed')
-    const onError = () => {
+    socket.addEventListener('open', () => setConnectionState('open'))
+    socket.addEventListener('close', () => setConnectionState('closed'))
+    socket.addEventListener('error', () => {
       setConnectionState('error')
       setLastError('Connection failed.')
-    }
-    const onMessage = (event: MessageEvent) => {
+    })
+    socket.addEventListener('message', (event) => {
       try {
         const data = JSON.parse(String(event.data)) as ServerToClientMessage
         if (data.type === 'snapshot') {
@@ -62,22 +62,13 @@ export function useOnlineMatch(session: OnlineSession | null) {
       } catch {
         setLastError('Bad server message.')
       }
-    }
-
-    socket.addEventListener('open', onOpen)
-    socket.addEventListener('close', onClose)
-    socket.addEventListener('error', onError)
-    socket.addEventListener('message', onMessage)
+    })
 
     return () => {
-      socket.removeEventListener('open', onOpen)
-      socket.removeEventListener('close', onClose)
-      socket.removeEventListener('error', onError)
-      socket.removeEventListener('message', onMessage)
       socket.close()
       if (socketRef.current === socket) socketRef.current = null
     }
-  }, [host, session?.roomCode, session?.seatToken])
+  }, [session?.roomCode, session?.seatToken])
 
   const send = useCallback((message: ClientToServerMessage) => {
     const socket = socketRef.current

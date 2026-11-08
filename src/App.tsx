@@ -30,12 +30,12 @@ import { ScoreBoard } from './components/ScoreBoard'
 import { TurnControls } from './components/TurnControls'
 import { DebugHud } from './debug/DebugHud'
 import { debugLog } from './debug/debugMode'
-import { getPartyKitHost } from './online/partyHost'
 import {
   createOnlineSession,
   useOnlineMatch,
   type OnlineSession,
 } from './online/useOnlineMatch'
+import { getMatchServerWsBase } from './online/wsUrl'
 
 type Action =
   | { type: 'set_target'; target: TargetScore }
@@ -117,7 +117,7 @@ export default function App() {
   const [playMode, setPlayMode] = useState<PlayModeChoice>('solo')
   const [joinCode, setJoinCode] = useState('')
   const [onlineSession, setOnlineSession] = useState<OnlineSession | null>(null)
-  const onlineAvailable = Boolean(getPartyKitHost())
+  const onlineAvailable = Boolean(getMatchServerWsBase())
 
   const {
     snapshot,
@@ -240,7 +240,7 @@ export default function App() {
           <h1 className="brand">Nicer Dicer</h1>
           <p className="lede">
             {connectionState === 'error'
-              ? lastError || 'Could not connect to PartyKit.'
+              ? lastError || 'Could not connect to match server.'
               : `Connecting to room ${onlineSession.roomCode}…`}
           </p>
           <button type="button" className="btn" onClick={leaveOnline}>

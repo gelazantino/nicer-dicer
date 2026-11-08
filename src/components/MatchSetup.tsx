@@ -76,8 +76,8 @@ export function MatchSetup({
 
       {!onlineAvailable && (
         <p className="setup-hint">
-          Online needs PartyKit. Run <code>npm run dev:party</code> and keep{' '}
-          <code>VITE_PARTYKIT_HOST</code> set.
+          Online needs the match server. Run <code>npm run dev:server</code> and
+          keep <code>VITE_WS_URL</code> set (e.g. <code>ws://127.0.0.1:8787</code>).
         </p>
       )}
 
