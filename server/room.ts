@@ -1,4 +1,3 @@
-import type * as Party from 'partykit/server'
 import {
   bank,
   chooseReroll,
@@ -8,40 +7,54 @@ import {
   setSelection,
   startMatch,
   toggleSelect,
-} from '../src/game/engine'
+} from '../src/game/engine.ts'
 import type {
   ClientToServerMessage,
   OnlineLobbyStatus,
   OnlineRoomSnapshot,
   ServerToClientMessage,
-} from '../src/game/onlineProtocol'
-import { normalizeRoomCode } from '../src/game/onlineProtocol'
-import type { MatchState, PlayerId, TargetScore } from '../src/game/types'
-import { defaultHumanLoadout } from '../src/game/weightedRoll'
+} from '../src/game/onlineProtocol.ts'
+import { normalizeRoomCode } from '../src/game/onlineProtocol.ts'
+import type { MatchState, PlayerId, TargetScore } from '../src/game/types.ts'
+import { defaultHumanLoadout } from '../src/game/weightedRoll.ts'
 
 const BUST_REVEAL_MS = 2200
 
 type SeatToken = string
+
+export interface RoomConnection {
+  id: string
+  send: (message: ServerToClientMessage) => void
+}
 
 interface SeatBinding {
   token: SeatToken
   connectionId: string | null
 }
 
-export default class DiceRoom implements Party.Server {
+/** Authoritative 1v1 room — used by the VPS WebSocket server. */
+export class DiceRoom {
+  readonly roomCode: string
   targetScore: TargetScore = 4000
   status: OnlineLobbyStatus = 'lobby'
   match: MatchState | null = null
   seats: Record<PlayerId, SeatBinding | null> = { p1: null, p2: null }
-  bustTimer: ReturnType<typeof setTimeout> | null = null
+  private connections = new Map<string, RoomConnection>()
+  private connectionMeta = new Map<
+    string,
+    { seat: PlayerId; seatToken: string }
+  >()
+  private bustTimer: ReturnType<typeof setTimeout> | null = null
 
-  constructor(readonly room: Party.Room) {}
+  constructor(roomCode: string) {
+    this.roomCode = normalizeRoomCode(roomCode)
+  }
 
-  onConnect(connection: Party.Connection, ctx: Party.ConnectionContext) {
-    const roomCode = normalizeRoomCode(this.room.id)
-    const url = new URL(ctx.request.url)
-    const seatToken = url.searchParams.get('seatToken') || connection.id
+  get isEmpty(): boolean {
+    return this.connections.size === 0
+  }
 
+  connect(connection: RoomConnection, seatToken: string): PlayerId | null {
     let seat = this.findSeatByToken(seatToken)
     if (!seat) {
       seat = this.assignSeat(seatToken, connection.id)
@@ -50,43 +63,43 @@ export default class DiceRoom implements Party.Server {
     }
 
     if (!seat) {
-      this.send(connection, {
-        type: 'error',
-        message: 'Room is full.',
-      })
-      connection.close(1013, 'Room full')
-      return
+      connection.send({ type: 'error', message: 'Room is full.' })
+      return null
     }
 
-    connection.setState({ seat, seatToken })
+    this.connections.set(connection.id, connection)
+    this.connectionMeta.set(connection.id, { seat, seatToken })
     this.broadcastSnapshots()
+    return seat
   }
 
-  onClose(connection: Party.Connection) {
-    const state = connection.state as { seat?: PlayerId; seatToken?: string } | null
-    if (state?.seat && this.seats[state.seat]?.connectionId === connection.id) {
-      this.seats[state.seat] = {
-        token: state.seatToken || this.seats[state.seat]!.token,
+  disconnect(connectionId: string) {
+    const meta = this.connectionMeta.get(connectionId)
+    if (meta?.seat && this.seats[meta.seat]?.connectionId === connectionId) {
+      this.seats[meta.seat] = {
+        token: meta.seatToken,
         connectionId: null,
       }
     }
+    this.connections.delete(connectionId)
+    this.connectionMeta.delete(connectionId)
     this.broadcastSnapshots()
   }
 
-  onMessage(message: string, sender: Party.Connection) {
+  handleMessage(connectionId: string, raw: string) {
+    const connection = this.connections.get(connectionId)
+    const meta = this.connectionMeta.get(connectionId)
+    if (!connection || !meta) return
+
     let data: ClientToServerMessage
     try {
-      data = JSON.parse(message) as ClientToServerMessage
+      data = JSON.parse(raw) as ClientToServerMessage
     } catch {
-      this.send(sender, { type: 'error', message: 'Invalid message.' })
+      connection.send({ type: 'error', message: 'Invalid message.' })
       return
     }
 
-    const seat = (sender.state as { seat?: PlayerId } | null)?.seat
-    if (!seat) {
-      this.send(sender, { type: 'error', message: 'No seat assigned.' })
-      return
-    }
+    const { seat } = meta
 
     switch (data.type) {
       case 'hello':
@@ -98,10 +111,10 @@ export default class DiceRoom implements Party.Server {
         }
         break
       case 'start':
-        this.handleStart(sender, seat)
+        this.handleStart(connection, seat)
         break
       case 'restart':
-        this.handleRestart(sender, seat)
+        this.handleRestart(connection, seat)
         break
       case 'roll':
       case 'toggle':
@@ -110,26 +123,25 @@ export default class DiceRoom implements Party.Server {
       case 'bank':
       case 'reroll':
       case 'resolve_bust':
-        this.handleGameAction(sender, seat, data)
+        this.handleGameAction(connection, seat, data)
         break
       default:
-        this.send(sender, { type: 'error', message: 'Unknown action.' })
+        connection.send({ type: 'error', message: 'Unknown action.' })
         return
     }
 
     this.broadcastSnapshots()
   }
 
-  private handleStart(sender: Party.Connection, seat: PlayerId) {
+  private handleStart(connection: RoomConnection, seat: PlayerId) {
     if (this.status !== 'lobby' && this.status !== 'finished') {
-      this.send(sender, { type: 'error', message: 'Match already in progress.' })
+      connection.send({ type: 'error', message: 'Match already in progress.' })
       return
     }
     if (!this.seats.p1 || !this.seats.p2) {
-      this.send(sender, { type: 'error', message: 'Need two players to start.' })
+      connection.send({ type: 'error', message: 'Need two players to start.' })
       return
     }
-    // Either seated player may start once both seats claimed.
     void seat
     this.clearBustTimer()
     this.match = startMatch(this.targetScore, defaultHumanLoadout(), 'online')
@@ -137,9 +149,9 @@ export default class DiceRoom implements Party.Server {
     this.maybeScheduleBust()
   }
 
-  private handleRestart(sender: Party.Connection, seat: PlayerId) {
+  private handleRestart(connection: RoomConnection, seat: PlayerId) {
     if (!this.seats.p1 || !this.seats.p2) {
-      this.send(sender, { type: 'error', message: 'Need two players to restart.' })
+      connection.send({ type: 'error', message: 'Need two players to restart.' })
       return
     }
     void seat
@@ -150,27 +162,24 @@ export default class DiceRoom implements Party.Server {
   }
 
   private handleGameAction(
-    sender: Party.Connection,
+    connection: RoomConnection,
     seat: PlayerId,
     data: ClientToServerMessage,
   ) {
     if (!this.match || this.status !== 'playing') {
-      this.send(sender, { type: 'error', message: 'No active match.' })
+      connection.send({ type: 'error', message: 'No active match.' })
       return
     }
 
-    if (data.type === 'resolve_bust') {
-      // Server owns bust timing; ignore client resolve requests.
-      return
-    }
+    if (data.type === 'resolve_bust') return
 
     if (this.match.turnPhase === 'showing_bust') {
-      this.send(sender, { type: 'error', message: 'Wait for bust reveal.' })
+      connection.send({ type: 'error', message: 'Wait for bust reveal.' })
       return
     }
 
     if (this.match.currentPlayer !== seat) {
-      this.send(sender, { type: 'error', message: 'Not your turn.' })
+      connection.send({ type: 'error', message: 'Not your turn.' })
       return
     }
 
@@ -243,7 +252,7 @@ export default class DiceRoom implements Party.Server {
 
   private snapshotFor(seat: PlayerId | null): OnlineRoomSnapshot {
     return {
-      roomCode: normalizeRoomCode(this.room.id),
+      roomCode: this.roomCode,
       status: this.status,
       targetScore: this.targetScore,
       seat,
@@ -260,20 +269,13 @@ export default class DiceRoom implements Party.Server {
     }
   }
 
-  private send(connection: Party.Connection, message: ServerToClientMessage) {
-    connection.send(JSON.stringify(message))
-  }
-
   private broadcastSnapshots() {
-    for (const connection of this.room.getConnections()) {
-      const seat =
-        (connection.state as { seat?: PlayerId } | null)?.seat ?? null
-      this.send(connection, {
+    for (const [id, connection] of this.connections) {
+      const seat = this.connectionMeta.get(id)?.seat ?? null
+      connection.send({
         type: 'snapshot',
         snapshot: this.snapshotFor(seat),
       })
     }
   }
 }
-
-DiceRoom satisfies Party.Worker
