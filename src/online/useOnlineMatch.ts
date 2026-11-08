@@ -55,7 +55,7 @@ export function useOnlineMatch(session: OnlineSession | null) {
       setSnapshot(null)
       setConnectionState('error')
       setLastError(
-        'This HTTPS site cannot use ws://. Put TLS on the VPS and set VITE_WS_URL to wss://…',
+        `Blocked insecure URL on HTTPS: ${url}. In Vercel set VITE_WS_URL=wss://dice.lockersmoker.com and redeploy.`,
       )
       return
     }
@@ -71,8 +71,8 @@ export function useOnlineMatch(session: OnlineSession | null) {
       setConnectionState('error')
       setLastError(
         error instanceof Error
-          ? error.message
-          : 'Failed to open WebSocket (use wss:// on HTTPS sites).',
+          ? `${error.message} (tried ${url})`
+          : `Failed to open WebSocket (tried ${url}).`,
       )
       return
     }
@@ -86,9 +86,9 @@ export function useOnlineMatch(session: OnlineSession | null) {
     socket.addEventListener('error', () => {
       setConnectionState('error')
       setLastError(
-        isSecurePage()
-          ? 'WebSocket failed. HTTPS pages need wss:// to the VPS.'
-          : 'Connection failed.',
+        isSecurePage() && url.startsWith('ws://')
+          ? `WebSocket failed for ${url}. HTTPS pages need wss://dice.lockersmoker.com — update Vercel env and redeploy.`
+          : `WebSocket failed for ${url}.`,
       )
     })
     socket.addEventListener('message', (event) => {
