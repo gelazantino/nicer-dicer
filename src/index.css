@@ -413,6 +413,95 @@ body {
   color: var(--ember-glow);
 }
 
+.badge-legend-scroll {
+  max-height: min(52vh, 420px);
+  overflow: auto;
+  margin: 0 -0.15rem 0.25rem;
+  padding: 0 0.15rem 0.25rem;
+}
+
+.badge-legend-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.badge-legend-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  align-items: start;
+  padding: 0.45rem 0.35rem;
+  border-bottom: 1px solid rgba(232, 220, 200, 0.08);
+}
+
+.badge-legend-copy {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.badge-legend-copy strong {
+  color: var(--cream);
+  font-size: 0.86rem;
+}
+
+.badge-legend-copy p {
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: rgba(185, 168, 144, 0.9);
+}
+
+.badge-tier {
+  justify-self: start;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+}
+
+.badge-tier--tin {
+  color: #2a2a2a;
+  background: linear-gradient(180deg, #d8d4ce, #9a9590);
+}
+
+.badge-tier--silver {
+  color: #243040;
+  background: linear-gradient(180deg, #eef3f8, #9eb0c4);
+}
+
+.badge-tier--gold {
+  color: #4a3208;
+  background: linear-gradient(180deg, #f6e2a0, #c9a227);
+}
+
+.legend-badge {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.22);
+  box-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.28),
+    0 6px 12px rgba(0, 0, 0, 0.28);
+}
+
+.legend-badge-img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  display: block;
+  image-rendering: auto;
+}
+
 .dice-weight-scroll {
   overflow-x: auto;
   margin: 0 -0.25rem;
