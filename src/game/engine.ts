@@ -1,6 +1,14 @@
 import { KCD_DICE_LEGEND } from './kcdDiceLegend'
 import { hasScoringOption, scoreSelection } from './scoring'
-import type { Face, DieSpec, MatchState, PlayerId, TableDie, TargetScore } from './types'
+import type {
+  Face,
+  DieSpec,
+  MatchMode,
+  MatchState,
+  PlayerId,
+  TableDie,
+  TargetScore,
+} from './types'
 import {
   defaultHumanLoadout,
   isDevilHeadFace,
@@ -8,12 +16,17 @@ import {
   rollWeightedFace,
 } from './weightedRoll'
 
-let dieSeq = 0
+function newDieId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return `die-${crypto.randomUUID()}`
+  }
+  return `die-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
 
 function createTableDie(spec: DieSpec): TableDie {
   const face = rollWeightedFace(spec.dieTypeId)
   return {
-    id: `die-${++dieSeq}`,
+    id: newDieId(),
     face,
     dieTypeId: spec.dieTypeId,
     loadoutSlot: spec.loadoutSlot,
@@ -25,7 +38,7 @@ function loadoutSpecs(loadout: string[]): DieSpec[] {
   return loadout.map((dieTypeId, loadoutSlot) => ({ dieTypeId, loadoutSlot }))
 }
 
-function aiFairSpecs(count: number): DieSpec[] {
+function fairSpecs(count: number): DieSpec[] {
   return Array.from({ length: count }, (_, loadoutSlot) => ({
     dieTypeId: ORDINARY_DIE_ID,
     loadoutSlot,
@@ -39,13 +52,15 @@ export function createDiceFromSpecs(specs: DieSpec[]): TableDie[] {
 export function createSetupState(
   targetScore: TargetScore = 4000,
   humanLoadout: string[] = defaultHumanLoadout(),
+  mode: MatchMode = 'solo',
 ): MatchState {
   return {
     phase: 'setup',
     turnPhase: 'need_roll',
+    mode,
     targetScore,
-    scores: { human: 0, ai: 0 },
-    currentPlayer: 'human',
+    scores: { p1: 0, p2: 0 },
+    currentPlayer: 'p1',
     turnScore: 0,
     roll: [],
     selected: [],
@@ -104,19 +119,34 @@ export function fillRandomLoadout(state: MatchState): MatchState {
 export function startMatch(
   targetScore: TargetScore,
   humanLoadout: string[] = defaultHumanLoadout(),
+  mode: MatchMode = 'solo',
 ): MatchState {
+  const fair =
+    mode === 'online' ? defaultHumanLoadout() : normalizeLoadout(humanLoadout)
   return {
-    ...createSetupState(targetScore, humanLoadout),
+    ...createSetupState(targetScore, fair, mode),
     phase: 'playing',
     turnPhase: 'need_roll',
-    currentPlayer: 'human',
-    message: 'Your turn — roll the dice.',
+    currentPlayer: 'p1',
+    message: turnStartMessage('p1', mode),
     lastEvent: null,
   }
 }
 
-function otherPlayer(player: PlayerId): PlayerId {
-  return player === 'human' ? 'ai' : 'human'
+export function otherPlayer(player: PlayerId): PlayerId {
+  return player === 'p1' ? 'p2' : 'p1'
+}
+
+function actorLabel(player: PlayerId, mode: MatchMode): string {
+  if (mode === 'solo') return player === 'p1' ? 'You' : 'AI'
+  return player === 'p1' ? 'P1' : 'P2'
+}
+
+function turnStartMessage(player: PlayerId, mode: MatchMode): string {
+  if (mode === 'solo') {
+    return player === 'p1' ? 'Your turn — roll the dice.' : "AI's turn…"
+  }
+  return `${actorLabel(player, mode)}'s turn — roll the dice.`
 }
 
 function beginTurn(state: MatchState, player: PlayerId, message: string): MatchState {
@@ -198,10 +228,13 @@ function specsForRoll(state: MatchState): DieSpec[] {
   if (state.pendingRollSpecs && state.pendingRollSpecs.length > 0) {
     return state.pendingRollSpecs
   }
-  if (state.currentPlayer === 'human') {
+  if (state.mode === 'online') {
+    return fairSpecs(state.diceToRoll)
+  }
+  if (state.currentPlayer === 'p1') {
     return loadoutSpecs(state.humanLoadout)
   }
-  return aiFairSpecs(state.diceToRoll)
+  return fairSpecs(state.diceToRoll)
 }
 
 export function roll(state: MatchState): MatchState {
@@ -225,6 +258,13 @@ export function roll(state: MatchState): MatchState {
     }
   }
 
+  const selecting =
+    state.mode === 'solo'
+      ? state.currentPlayer === 'p1'
+        ? 'Select scoring dice, then confirm.'
+        : 'AI is choosing dice…'
+      : `${actorLabel(state.currentPlayer, state.mode)}: select scoring dice.`
+
   return {
     ...state,
     turnPhase: 'need_select',
@@ -232,18 +272,19 @@ export function roll(state: MatchState): MatchState {
     selected: [],
     pendingRollSpecs: null,
     throwId,
-    message:
-      state.currentPlayer === 'human'
-        ? 'Select scoring dice, then confirm.'
-        : 'AI is choosing dice…',
+    message: selecting,
     lastEvent: null,
   }
 }
 
-function bustMessage(busted: PlayerId, next: PlayerId): string {
-  const who = busted === 'human' ? 'You busted' : 'AI busted'
-  const turn = next === 'human' ? 'Your turn — roll the dice.' : "AI's turn…"
-  return `${who}! Turn points lost. ${turn}`
+function bustMessage(busted: PlayerId, next: PlayerId, mode: MatchMode): string {
+  const who =
+    mode === 'solo'
+      ? busted === 'p1'
+        ? 'You busted'
+        : 'AI busted'
+      : `${actorLabel(busted, mode)} busted`
+  return `${who}! Turn points lost. ${turnStartMessage(next, mode)}`
 }
 
 export function resolveBust(state: MatchState): MatchState {
@@ -251,7 +292,11 @@ export function resolveBust(state: MatchState): MatchState {
 
   const nextPlayer = otherPlayer(state.currentPlayer)
   return {
-    ...beginTurn(state, nextPlayer, bustMessage(state.currentPlayer, nextPlayer)),
+    ...beginTurn(
+      state,
+      nextPlayer,
+      bustMessage(state.currentPlayer, nextPlayer, state.mode),
+    ),
     lastEvent: 'bust',
   }
 }
@@ -267,6 +312,12 @@ export function confirmHold(state: MatchState): MatchState {
   const turnScore = state.turnScore + score
 
   if (usedAll) {
+    const hot =
+      state.mode === 'solo'
+        ? state.currentPlayer === 'p1'
+          ? `Hot dice! +${score}. Roll all six again.`
+          : `AI hot dice! +${score}.`
+        : `${actorLabel(state.currentPlayer, state.mode)} hot dice! +${score}.`
     return {
       ...state,
       turnPhase: 'need_roll',
@@ -275,15 +326,19 @@ export function confirmHold(state: MatchState): MatchState {
       selected: [],
       diceToRoll: 6,
       pendingRollSpecs: null,
-      message:
-        state.currentPlayer === 'human'
-          ? `Hot dice! +${score}. Roll all six again.`
-          : `AI hot dice! +${score}.`,
+      message: hot,
       lastEvent: 'hot_dice',
     }
   }
 
   const remainingDice = state.roll.filter((d) => !selected.has(d.id))
+  const afterHold =
+    state.mode === 'solo'
+      ? state.currentPlayer === 'p1'
+        ? `+${score}. Bank ${turnScore}, or roll ${remainingDice.length} dice.`
+        : `AI scored +${score} (turn ${turnScore}).`
+      : `${actorLabel(state.currentPlayer, state.mode)} scored +${score} (turn ${turnScore}).`
+
   return {
     ...state,
     turnPhase: 'need_decision',
@@ -292,10 +347,7 @@ export function confirmHold(state: MatchState): MatchState {
     selected: [],
     diceToRoll: remainingDice.length,
     pendingRollSpecs: null,
-    message:
-      state.currentPlayer === 'human'
-        ? `+${score}. Bank ${turnScore}, or roll ${remainingDice.length} dice.`
-        : `AI scored +${score} (turn ${turnScore}).`,
+    message: afterHold,
     lastEvent: null,
   }
 }
@@ -308,6 +360,12 @@ export function bank(state: MatchState): MatchState {
   const scores = { ...state.scores, [player]: newScore }
 
   if (newScore >= state.targetScore) {
+    const win =
+      state.mode === 'solo'
+        ? player === 'p1'
+          ? 'You win!'
+          : 'AI wins.'
+        : `${actorLabel(player, state.mode)} wins!`
     return {
       ...state,
       phase: 'game_over',
@@ -319,27 +377,46 @@ export function bank(state: MatchState): MatchState {
       diceToRoll: 6,
       pendingRollSpecs: null,
       winner: player,
-      message: player === 'human' ? 'You win!' : 'AI wins.',
+      message: win,
       lastEvent: 'win',
     }
   }
 
   const next = otherPlayer(player)
   return {
-    ...beginTurn({ ...state, scores }, next, bankMessage(player, state.turnScore, next)),
+    ...beginTurn(
+      { ...state, scores },
+      next,
+      bankMessage(player, state.turnScore, next, state.mode),
+    ),
     scores,
     lastEvent: 'bank',
   }
 }
 
-function bankMessage(banked: PlayerId, points: number, next: PlayerId): string {
-  const who = banked === 'human' ? 'You banked' : 'AI banked'
-  const turn = next === 'human' ? 'Your turn — roll the dice.' : "AI's turn…"
-  return `${who} ${points}. ${turn}`
+function bankMessage(
+  banked: PlayerId,
+  points: number,
+  next: PlayerId,
+  mode: MatchMode,
+): string {
+  const who =
+    mode === 'solo'
+      ? banked === 'p1'
+        ? 'You banked'
+        : 'AI banked'
+      : `${actorLabel(banked, mode)} banked`
+  return `${who} ${points}. ${turnStartMessage(next, mode)}`
 }
 
 export function chooseReroll(state: MatchState): MatchState {
   if (!canReroll(state)) return state
+  const msg =
+    state.mode === 'solo'
+      ? state.currentPlayer === 'p1'
+        ? `Roll ${state.diceToRoll} dice.`
+        : 'AI will roll again…'
+      : `${actorLabel(state.currentPlayer, state.mode)} rolls ${state.diceToRoll} more.`
   return {
     ...state,
     turnPhase: 'need_roll',
@@ -349,10 +426,28 @@ export function chooseReroll(state: MatchState): MatchState {
     })),
     roll: [],
     selected: [],
-    message:
-      state.currentPlayer === 'human'
-        ? `Roll ${state.diceToRoll} dice.`
-        : 'AI will roll again…',
+    message: msg,
     lastEvent: null,
   }
+}
+
+/** Remap neutral P1/P2 copy to You/Opponent for the local seat. */
+export function personalizeOnlineMessage(
+  message: string | null,
+  seat: PlayerId,
+): string | null {
+  if (!message) return null
+  const me = seat === 'p1' ? 'P1' : 'P2'
+  const them = seat === 'p1' ? 'P2' : 'P1'
+  if (message === `${me} wins!`) return 'You win!'
+  if (message === `${them} wins!`) return 'Opponent wins!'
+  return message
+    .replaceAll(`${me}'s`, 'Your')
+    .replaceAll(`${me} `, 'You ')
+    .replaceAll(`${me}:`, 'You:')
+    .replaceAll(me, 'You')
+    .replaceAll(`${them}'s`, "Opponent's")
+    .replaceAll(`${them} `, 'Opponent ')
+    .replaceAll(`${them}:`, 'Opponent:')
+    .replaceAll(them, 'Opponent')
 }
