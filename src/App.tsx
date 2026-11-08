@@ -5,8 +5,11 @@ import {
   chooseReroll,
   confirmHold,
   createSetupState,
+  fillLoadout,
+  fillRandomLoadout,
   resolveBust,
   roll,
+  setLoadoutSlot,
   setSelection,
   startMatch,
   toggleSelect,
@@ -14,12 +17,18 @@ import {
 import type { MatchState, TargetScore } from './game/types'
 import { DiceTray } from './components/DiceTray'
 import { MatchSetup } from './components/MatchSetup'
+import { LoadedDicePanel } from './components/LoadedDicePanel'
 import { RulesPanel } from './components/RulesPanel'
 import { ScoreBoard } from './components/ScoreBoard'
 import { TurnControls } from './components/TurnControls'
+import { DebugHud } from './debug/DebugHud'
+import { debugLog } from './debug/debugMode'
 
 type Action =
   | { type: 'set_target'; target: TargetScore }
+  | { type: 'set_loadout_slot'; slot: number; dieTypeId: string }
+  | { type: 'fill_loadout'; dieTypeId: string }
+  | { type: 'fill_random_loadout' }
   | { type: 'start' }
   | { type: 'restart' }
   | { type: 'new_match' }
@@ -45,11 +54,17 @@ function reducer(state: MatchState, action: Action): MatchState {
   switch (action.type) {
     case 'set_target':
       return { ...state, targetScore: action.target }
+    case 'set_loadout_slot':
+      return setLoadoutSlot(state, action.slot, action.dieTypeId)
+    case 'fill_loadout':
+      return fillLoadout(state, action.dieTypeId)
+    case 'fill_random_loadout':
+      return fillRandomLoadout(state)
     case 'start':
     case 'restart':
-      return startMatch(state.targetScore)
+      return startMatch(state.targetScore, state.humanLoadout)
     case 'new_match':
-      return createSetupState(state.targetScore)
+      return createSetupState(state.targetScore, state.humanLoadout)
     case 'roll':
       return roll(state)
     case 'toggle':
@@ -75,6 +90,18 @@ export default function App() {
 
   const humanTurn =
     state.phase === 'playing' && state.currentPlayer === 'human'
+
+  useEffect(() => {
+    debugLog('state', {
+      phase: state.phase,
+      turnPhase: state.turnPhase,
+      player: state.currentPlayer,
+      turnScore: state.turnScore,
+      throwId: state.throwId,
+      lastEvent: state.lastEvent,
+      loadout: state.humanLoadout,
+    })
+  }, [state])
 
   useEffect(() => {
     if (state.phase !== 'playing') return
@@ -125,10 +152,18 @@ export default function App() {
       <div className="app">
         <MatchSetup
           targetScore={state.targetScore}
+          humanLoadout={state.humanLoadout}
           onTargetChange={(target) => dispatch({ type: 'set_target', target })}
+          onLoadoutSlotChange={(slot, dieTypeId) =>
+            dispatch({ type: 'set_loadout_slot', slot, dieTypeId })
+          }
+          onFillLoadout={(dieTypeId) => dispatch({ type: 'fill_loadout', dieTypeId })}
+          onFillRandomLoadout={() => dispatch({ type: 'fill_random_loadout' })}
           onStart={() => dispatch({ type: 'start' })}
         />
         <RulesPanel />
+        <LoadedDicePanel />
+        <DebugHud state={state} />
       </div>
     )
   }
@@ -162,6 +197,8 @@ export default function App() {
       </main>
 
       <RulesPanel />
+      <LoadedDicePanel />
+      <DebugHud state={state} />
     </div>
   )
 }

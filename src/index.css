@@ -228,6 +228,8 @@ body {
   --y: 50%;
   --rot: 0deg;
   --delay: 0ms;
+  --pip-on: var(--ink);
+  --die-edge: #9a876c;
   position: absolute;
   left: var(--x);
   top: var(--y);
@@ -238,7 +240,7 @@ body {
   padding: 8px;
   background: linear-gradient(145deg, #f4efe6, #d9cbb5);
   box-shadow:
-    0 6px 0 #9a876c,
+    0 6px 0 var(--die-edge),
     0 10px 18px rgba(0, 0, 0, 0.35);
   cursor: pointer;
   transform: translate(-50%, -50%) rotate(var(--rot));
@@ -267,7 +269,7 @@ body {
 .die.selected {
   outline: 3px solid var(--ember-glow);
   box-shadow:
-    0 10px 0 #9a876c,
+    0 10px 0 var(--die-edge),
     0 16px 24px rgba(0, 0, 0, 0.45);
   filter: brightness(1.08);
   z-index: 3;
@@ -303,7 +305,7 @@ body {
 }
 
 .pip.on {
-  background: var(--ink);
+  background: var(--pip-on, var(--ink));
 }
 
 .controls {
@@ -392,12 +394,457 @@ body {
   color: var(--cream);
 }
 
-.rules ul {
+.rules > ul {
   margin: 0.75rem 0 0.35rem;
   padding-left: 1.15rem;
   display: grid;
   gap: 0.4rem;
   font-size: 0.92rem;
+}
+
+.dice-legend-note {
+  margin: 0.75rem 0 0.85rem;
+  font-size: 0.82rem;
+  color: rgba(185, 168, 144, 0.9);
+  line-height: 1.4;
+}
+
+.dice-legend-note a {
+  color: var(--ember-glow);
+}
+
+.dice-weight-scroll {
+  overflow-x: auto;
+  margin: 0 -0.25rem;
+  padding: 0 0.25rem 0.35rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dice-weight-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.dice-weight-table th,
+.dice-weight-table td {
+  padding: 0.5rem 0.4rem;
+  border-bottom: 1px solid rgba(232, 220, 200, 0.1);
+  text-align: center;
+  vertical-align: middle;
+}
+
+.dice-weight-table thead th {
+  position: sticky;
+  top: 0;
+  background: rgba(26, 20, 16, 0.95);
+  color: var(--cream);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.dice-weight-table tbody th {
+  text-align: left;
+  font-weight: 500;
+  min-width: 11rem;
+  vertical-align: top;
+}
+
+.die-look {
+  width: 3rem;
+  padding-right: 0.15rem !important;
+}
+
+.die-name {
+  display: block;
+  color: var(--cream);
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+.die-desc {
+  display: block;
+  margin-top: 0.15rem;
+  color: rgba(185, 168, 144, 0.88);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  font-weight: 400;
+}
+
+.dice-weight-table td.hot-weight {
+  color: #f0c36a;
+  font-weight: 700;
+}
+
+.devil-weight {
+  white-space: nowrap;
+}
+
+.legend-die {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  padding: 5px;
+  display: grid;
+  place-items: center;
+  box-shadow:
+    0 3px 0 rgba(0, 0, 0, 0.28),
+    0 6px 10px rgba(0, 0, 0, 0.28);
+}
+
+.legend-pips {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  width: 100%;
+  height: 100%;
+  gap: 1px;
+}
+
+.legend-pip {
+  border-radius: 50%;
+  background: transparent;
+}
+
+.legend-pip.on {
+  background: var(--ink);
+}
+
+.legend-devil {
+  font-size: 1rem;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+}
+
+/* Shared skins: legend previews + table dice */
+.legend-die--alfonse-devil,
+.die.die-type--alfonse-devil {
+  background: linear-gradient(145deg, #b84a3c, #5c1418);
+  --die-edge: #4a1014;
+}
+.legend-die--alfonse-devil .legend-devil,
+.die.die-type--alfonse-devil .die-dragon {
+  color: #1a0506;
+}
+
+.legend-die--alfonse,
+.die.die-type--alfonse {
+  background: linear-gradient(145deg, #f0d9a0, #b8873a);
+  --die-edge: #8a6428;
+}
+
+.legend-die--ambrose,
+.die.die-type--ambrose {
+  background: linear-gradient(145deg, #e8dcc8, #8b7355);
+  --die-edge: #6a5640;
+}
+
+.legend-die--another,
+.die.die-type--another {
+  background: linear-gradient(145deg, #c8daf0, #4a6fa5);
+  --die-edge: #35527a;
+}
+
+.legend-die--biased {
+  background: linear-gradient(145deg, #e2c9a8, #9a6b3c);
+  transform: rotate(-4deg);
+}
+.die.die-type--biased {
+  background: linear-gradient(145deg, #e2c9a8, #9a6b3c);
+  --die-edge: #744e2c;
+}
+
+.legend-die--ci,
+.die.die-type--ci {
+  background: linear-gradient(145deg, #3d2a33, #1a1014);
+  --pip-on: #e8b45a;
+  --die-edge: #0d080a;
+}
+.legend-die--ci .legend-pip.on {
+  background: #e8b45a;
+}
+
+.legend-die--devils-head,
+.die.die-type--devils-head {
+  background: linear-gradient(145deg, #c45c4a, #6e1d1d);
+  --die-edge: #4a1212;
+}
+
+.legend-die--misfortune,
+.die.die-type--misfortune {
+  background: linear-gradient(145deg, #cfc8c0, #5a5550);
+  --die-edge: #3f3b38;
+}
+
+.legend-die--even,
+.die.die-type--even {
+  background: linear-gradient(145deg, #d5ead0, #5f8f58);
+  --die-edge: #456a40;
+}
+
+.legend-die--fer,
+.die.die-type--fer {
+  background: linear-gradient(145deg, #4a2430, #1c0c12);
+  --pip-on: #f0c36a;
+  --die-edge: #10060a;
+}
+.legend-die--fer .legend-pip.on {
+  background: #f0c36a;
+}
+
+.legend-die--heavenly {
+  background: linear-gradient(145deg, #f7f1d4, #d4b85a);
+  box-shadow:
+    0 3px 0 rgba(180, 140, 40, 0.45),
+    0 0 12px rgba(240, 210, 100, 0.45);
+}
+.die.die-type--heavenly {
+  background: linear-gradient(145deg, #f7f1d4, #d4b85a);
+  --die-edge: #a88830;
+  box-shadow:
+    0 6px 0 var(--die-edge),
+    0 10px 18px rgba(0, 0, 0, 0.35),
+    0 0 16px rgba(240, 210, 100, 0.45);
+}
+
+.legend-die--henry-beta,
+.die.die-type--henry-beta {
+  background: linear-gradient(145deg, #f3d0dc, #c46b88);
+  --die-edge: #8a4a62;
+}
+
+.legend-die--trinity,
+.die.die-type--trinity {
+  background: linear-gradient(145deg, #efe8f8, #8f6fbe);
+  --die-edge: #6a5090;
+}
+
+.legend-die--lu,
+.die.die-type--lu {
+  background: linear-gradient(145deg, #2f2438, #120e18);
+  --pip-on: #c9a227;
+  --die-edge: #08060c;
+}
+.legend-die--lu .legend-pip.on {
+  background: #c9a227;
+}
+
+.legend-die--lucky,
+.die.die-type--lucky {
+  background: linear-gradient(145deg, #e5f4dc, #6aaa58);
+  --die-edge: #4a7e40;
+}
+
+.legend-die--lucky-playing,
+.die.die-type--lucky-playing {
+  background: linear-gradient(145deg, #efe6c0, #c9a227);
+  --die-edge: #927418;
+}
+
+.legend-die--matthias,
+.die.die-type--matthias {
+  background: linear-gradient(145deg, #dcc9a8, #7a5a32);
+  border: 1px dashed rgba(60, 40, 20, 0.35);
+  --die-edge: #5a4024;
+}
+
+.legend-die--odd,
+.die.die-type--odd {
+  background: linear-gradient(145deg, #d8e6f4, #6a8fbc);
+  --die-edge: #4a6a90;
+}
+
+.legend-die--shrinking {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  padding: 4px;
+  background: linear-gradient(145deg, #efe8de, #a89070);
+}
+.die.die-type--shrinking {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  padding: 6px;
+  background: linear-gradient(145deg, #efe8de, #a89070);
+  --die-edge: #7a6850;
+}
+
+.legend-die--strip,
+.die.die-type--strip {
+  background: linear-gradient(145deg, #f0d0d8, #c45c78);
+  --die-edge: #8a4058;
+}
+
+.legend-die--commonest,
+.die.die-type--commonest {
+  background: linear-gradient(145deg, #f4efe6, #d9cbb5);
+  --die-edge: #9a876c;
+}
+
+.legend-die--least-common,
+.die.die-type--least-common {
+  background: linear-gradient(145deg, #f8e8b8, #d4a017);
+  outline: 1px solid rgba(120, 80, 10, 0.35);
+  --die-edge: #a07810;
+}
+
+.legend-die--uncommon,
+.die.die-type--uncommon {
+  background: linear-gradient(145deg, #ece4d6, #b8a078);
+  --die-edge: #887860;
+}
+
+.legend-die--unpopular,
+.die.die-type--unpopular {
+  background: linear-gradient(145deg, #d0cbc4, #6e6860);
+  filter: saturate(0.7);
+  --die-edge: #4e4a44;
+}
+
+.debug-loadout {
+  margin: 0 0 1.25rem;
+  padding: 0.9rem 0.85rem;
+  border-radius: 10px;
+  border: 1px dashed rgba(240, 195, 106, 0.45);
+  background: rgba(240, 195, 106, 0.08);
+}
+
+.debug-loadout-header h2 {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+  color: #f0c36a;
+}
+
+.debug-loadout-header p {
+  margin: 0 0 0.85rem;
+  font-size: 0.82rem;
+  color: var(--cream-dim);
+}
+
+.debug-loadout-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+
+.debug-loadout-slot {
+  display: grid;
+  gap: 0.35rem;
+  justify-items: start;
+  padding: 0.55rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(232, 220, 200, 0.12);
+}
+
+.debug-loadout-slot .slot-index {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--cream-dim);
+}
+
+.debug-loadout-slot select {
+  width: 100%;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--cream);
+  background: rgba(18, 14, 11, 0.85);
+  border: 1px solid rgba(232, 220, 200, 0.2);
+  border-radius: 6px;
+  padding: 0.35rem 0.4rem;
+}
+
+.debug-loadout-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.die-dragon {
+  font-size: 1.45rem;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+}
+
+.debug-hud {
+  position: fixed;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 50;
+  width: min(220px, calc(100vw - 1.5rem));
+  padding: 0.45rem 0.65rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid rgba(232, 220, 200, 0.2);
+  background: rgba(18, 14, 11, 0.88);
+  color: var(--cream-dim);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+}
+
+.debug-hud.is-collapsed {
+  width: auto;
+  padding: 0.35rem 0.55rem;
+}
+
+.debug-hud-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.15rem 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.debug-hud-title {
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #f0c36a;
+}
+
+.debug-hud-chevron {
+  color: #f0c36a;
+  opacity: 0.85;
+}
+
+.debug-hud.is-open .debug-hud-toggle {
+  margin-bottom: 0.4rem;
+}
+
+.debug-hud-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2rem 0.55rem;
+  margin: 0;
+}
+
+.debug-hud-grid dt {
+  opacity: 0.7;
+}
+
+.debug-hud-grid dd {
+  margin: 0;
+  color: var(--cream);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 520px) {

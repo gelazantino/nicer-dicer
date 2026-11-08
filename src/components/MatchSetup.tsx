@@ -1,12 +1,25 @@
+import { DebugLoadoutPicker } from '../debug/DebugLoadoutPicker'
 import type { TargetScore } from '../game/types'
 
 interface MatchSetupProps {
   targetScore: TargetScore
+  humanLoadout: string[]
   onTargetChange: (target: TargetScore) => void
+  onLoadoutSlotChange: (slot: number, dieTypeId: string) => void
+  onFillLoadout: (dieTypeId: string) => void
+  onFillRandomLoadout: () => void
   onStart: () => void
 }
 
-export function MatchSetup({ targetScore, onTargetChange, onStart }: MatchSetupProps) {
+export function MatchSetup({
+  targetScore,
+  humanLoadout,
+  onTargetChange,
+  onLoadoutSlotChange,
+  onFillLoadout,
+  onFillRandomLoadout,
+  onStart,
+}: MatchSetupProps) {
   return (
     <section className="panel setup">
       <h1 className="brand">Nicer Dicer</h1>
@@ -33,6 +46,13 @@ export function MatchSetup({ targetScore, onTargetChange, onStart }: MatchSetupP
           4000 — classic
         </label>
       </fieldset>
+
+      <DebugLoadoutPicker
+        loadout={humanLoadout}
+        onSlotChange={onLoadoutSlotChange}
+        onFillAll={onFillLoadout}
+        onFillRandom={onFillRandomLoadout}
+      />
 
       <button type="button" className="btn primary" onClick={onStart}>
         Start match

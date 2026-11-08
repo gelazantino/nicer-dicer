@@ -1,20 +1,45 @@
+import { KCD_DICE_LEGEND } from './kcdDiceLegend'
 import { hasScoringOption, scoreSelection } from './scoring'
-import type { Face, MatchState, PlayerId, TableDie, TargetScore } from './types'
+import type { Face, DieSpec, MatchState, PlayerId, TableDie, TargetScore } from './types'
+import {
+  defaultHumanLoadout,
+  isDevilHeadFace,
+  ORDINARY_DIE_ID,
+  rollWeightedFace,
+} from './weightedRoll'
 
 let dieSeq = 0
 
-function rollFace(): Face {
-  return (Math.floor(Math.random() * 6) + 1) as Face
+function createTableDie(spec: DieSpec): TableDie {
+  const face = rollWeightedFace(spec.dieTypeId)
+  return {
+    id: `die-${++dieSeq}`,
+    face,
+    dieTypeId: spec.dieTypeId,
+    loadoutSlot: spec.loadoutSlot,
+    devilHead: isDevilHeadFace(spec.dieTypeId, face),
+  }
 }
 
-export function createDice(count: number): TableDie[] {
-  return Array.from({ length: count }, () => ({
-    id: `die-${++dieSeq}`,
-    face: rollFace(),
+function loadoutSpecs(loadout: string[]): DieSpec[] {
+  return loadout.map((dieTypeId, loadoutSlot) => ({ dieTypeId, loadoutSlot }))
+}
+
+function aiFairSpecs(count: number): DieSpec[] {
+  return Array.from({ length: count }, (_, loadoutSlot) => ({
+    dieTypeId: ORDINARY_DIE_ID,
+    loadoutSlot,
   }))
 }
 
-export function createSetupState(targetScore: TargetScore = 4000): MatchState {
+export function createDiceFromSpecs(specs: DieSpec[]): TableDie[] {
+  return specs.map(createTableDie)
+}
+
+export function createSetupState(
+  targetScore: TargetScore = 4000,
+  humanLoadout: string[] = defaultHumanLoadout(),
+): MatchState {
   return {
     phase: 'setup',
     turnPhase: 'need_roll',
@@ -25,16 +50,63 @@ export function createSetupState(targetScore: TargetScore = 4000): MatchState {
     roll: [],
     selected: [],
     diceToRoll: 6,
+    pendingRollSpecs: null,
     throwId: 0,
+    humanLoadout: normalizeLoadout(humanLoadout),
     message: null,
     winner: null,
     lastEvent: null,
   }
 }
 
-export function startMatch(targetScore: TargetScore): MatchState {
+export function normalizeLoadout(loadout: string[]): string[] {
+  const next = loadout.slice(0, 6)
+  while (next.length < 6) next.push(ORDINARY_DIE_ID)
+  return next.map((id) => id || ORDINARY_DIE_ID)
+}
+
+export function setLoadoutSlot(
+  state: MatchState,
+  slot: number,
+  dieTypeId: string,
+): MatchState {
+  if (state.phase !== 'setup') return state
+  if (slot < 0 || slot > 5) return state
+  const humanLoadout = [...state.humanLoadout]
+  humanLoadout[slot] = dieTypeId || ORDINARY_DIE_ID
+  return { ...state, humanLoadout }
+}
+
+export function fillLoadout(
+  state: MatchState,
+  dieTypeId: string,
+): MatchState {
+  if (state.phase !== 'setup') return state
   return {
-    ...createSetupState(targetScore),
+    ...state,
+    humanLoadout: Array.from({ length: 6 }, () => dieTypeId || ORDINARY_DIE_ID),
+  }
+}
+
+export function fillRandomLoadout(state: MatchState): MatchState {
+  if (state.phase !== 'setup') return state
+  const ids = KCD_DICE_LEGEND.map((die) => die.id)
+  if (ids.length === 0) return state
+  return {
+    ...state,
+    humanLoadout: Array.from({ length: 6 }, () => {
+      const pick = ids[Math.floor(Math.random() * ids.length)]
+      return pick ?? ORDINARY_DIE_ID
+    }),
+  }
+}
+
+export function startMatch(
+  targetScore: TargetScore,
+  humanLoadout: string[] = defaultHumanLoadout(),
+): MatchState {
+  return {
+    ...createSetupState(targetScore, humanLoadout),
     phase: 'playing',
     turnPhase: 'need_roll',
     currentPlayer: 'human',
@@ -57,6 +129,7 @@ function beginTurn(state: MatchState, player: PlayerId, message: string): MatchS
     roll: [],
     selected: [],
     diceToRoll: 6,
+    pendingRollSpecs: null,
     message,
     lastEvent: null,
   }
@@ -121,10 +194,21 @@ export function setSelection(state: MatchState, ids: string[]): MatchState {
   return { ...state, selected, lastEvent: null }
 }
 
+function specsForRoll(state: MatchState): DieSpec[] {
+  if (state.pendingRollSpecs && state.pendingRollSpecs.length > 0) {
+    return state.pendingRollSpecs
+  }
+  if (state.currentPlayer === 'human') {
+    return loadoutSpecs(state.humanLoadout)
+  }
+  return aiFairSpecs(state.diceToRoll)
+}
+
 export function roll(state: MatchState): MatchState {
   if (!canRoll(state)) return state
 
-  const nextRoll = createDice(state.diceToRoll)
+  const specs = specsForRoll(state)
+  const nextRoll = createDiceFromSpecs(specs)
   const faces = facesOf(nextRoll)
   const throwId = state.throwId + 1
 
@@ -134,6 +218,7 @@ export function roll(state: MatchState): MatchState {
       turnPhase: 'showing_bust',
       roll: nextRoll,
       selected: [],
+      pendingRollSpecs: null,
       throwId,
       message: null,
       lastEvent: null,
@@ -145,6 +230,7 @@ export function roll(state: MatchState): MatchState {
     turnPhase: 'need_select',
     roll: nextRoll,
     selected: [],
+    pendingRollSpecs: null,
     throwId,
     message:
       state.currentPlayer === 'human'
@@ -188,6 +274,7 @@ export function confirmHold(state: MatchState): MatchState {
       roll: [],
       selected: [],
       diceToRoll: 6,
+      pendingRollSpecs: null,
       message:
         state.currentPlayer === 'human'
           ? `Hot dice! +${score}. Roll all six again.`
@@ -204,6 +291,7 @@ export function confirmHold(state: MatchState): MatchState {
     roll: remainingDice,
     selected: [],
     diceToRoll: remainingDice.length,
+    pendingRollSpecs: null,
     message:
       state.currentPlayer === 'human'
         ? `+${score}. Bank ${turnScore}, or roll ${remainingDice.length} dice.`
@@ -229,6 +317,7 @@ export function bank(state: MatchState): MatchState {
       roll: [],
       selected: [],
       diceToRoll: 6,
+      pendingRollSpecs: null,
       winner: player,
       message: player === 'human' ? 'You win!' : 'AI wins.',
       lastEvent: 'win',
@@ -254,6 +343,10 @@ export function chooseReroll(state: MatchState): MatchState {
   return {
     ...state,
     turnPhase: 'need_roll',
+    pendingRollSpecs: state.roll.map((die) => ({
+      dieTypeId: die.dieTypeId,
+      loadoutSlot: die.loadoutSlot,
+    })),
     roll: [],
     selected: [],
     message:

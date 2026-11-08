@@ -12,9 +12,18 @@ export type TurnPhase =
 
 export type MatchPhase = 'setup' | 'playing' | 'game_over'
 
+export interface DieSpec {
+  dieTypeId: string
+  loadoutSlot: number
+}
+
 export interface TableDie {
   id: string
   face: Face
+  dieTypeId: string
+  loadoutSlot: number
+  /** True when this face is the dragon/devil head side. */
+  devilHead: boolean
 }
 
 export interface MatchState {
@@ -30,8 +39,12 @@ export interface MatchState {
   selected: string[]
   /** How many dice to throw on the next roll. */
   diceToRoll: number
+  /** Specs awaiting the next roll (preserves loaded types after a hold). */
+  pendingRollSpecs: DieSpec[] | null
   /** Bumps on every physical throw so the UI can replay scatter animation. */
   throwId: number
+  /** Human's six die types (debug loadout; ordinary in normal play). */
+  humanLoadout: string[]
   message: string | null
   winner: PlayerId | null
   lastEvent: 'bust' | 'hot_dice' | 'bank' | 'win' | null

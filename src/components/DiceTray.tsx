@@ -119,20 +119,23 @@ export function DiceTray({
     <div className="dice-tray" role="group" aria-label="Dice">
       {roll.map((die) => {
         const spot = placements[die.id]
-        // Wait for layout setup so dice never paint at their resting pose first.
         if (!spot) return null
 
         const isSelected = selected.includes(die.id)
+        const faceLabel = die.devilHead ? 'dragon head' : String(die.face)
 
         return (
           <button
             key={die.id}
             type="button"
-            className={`die ${isSelected ? 'selected' : ''} ${throwing ? 'throwing' : ''}`}
+            className={`die die-type--${die.dieTypeId} ${isSelected ? 'selected' : ''} ${
+              throwing ? 'throwing' : ''
+            }`}
             disabled={!interactive}
             onClick={() => onToggle(die.id)}
             aria-pressed={isSelected}
-            aria-label={`Die showing ${die.face}${isSelected ? ', selected' : ''}`}
+            aria-label={`Die showing ${faceLabel}${isSelected ? ', selected' : ''}`}
+            title={die.dieTypeId}
             style={
               {
                 '--x': `${spot.x}%`,
@@ -142,14 +145,20 @@ export function DiceTray({
               } as CSSProperties
             }
           >
-            <span className="pips" data-face={die.face}>
-              {Array.from({ length: 9 }, (_, pip) => (
-                <span
-                  key={pip}
-                  className={`pip ${PIP_MAP[die.face].includes(pip) ? 'on' : ''}`}
-                />
-              ))}
-            </span>
+            {die.devilHead ? (
+              <span className="die-dragon" aria-hidden="true">
+                🐉
+              </span>
+            ) : (
+              <span className="pips" data-face={die.face}>
+                {Array.from({ length: 9 }, (_, pip) => (
+                  <span
+                    key={pip}
+                    className={`pip ${PIP_MAP[die.face].includes(pip) ? 'on' : ''}`}
+                  />
+                ))}
+              </span>
+            )}
           </button>
         )
       })}
