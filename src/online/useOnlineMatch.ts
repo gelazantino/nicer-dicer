@@ -12,6 +12,10 @@ export interface OnlineSession {
   seatToken: string
 }
 
+function isSecurePage(): boolean {
+  return typeof window !== 'undefined' && window.location.protocol === 'https:'
+}
+
 export function useOnlineMatch(session: OnlineSession | null) {
   const host = getMatchServerWsBase()
   const [snapshot, setSnapshot] = useState<OnlineRoomSnapshot | null>(null)
@@ -30,25 +34,62 @@ export function useOnlineMatch(session: OnlineSession | null) {
       return
     }
 
-    const url = buildMatchSocketUrl(session.roomCode, session.seatToken)
+    let url: string | null = null
+    try {
+      url = buildMatchSocketUrl(session.roomCode, session.seatToken)
+    } catch {
+      setSnapshot(null)
+      setConnectionState('error')
+      setLastError('Invalid match server URL (VITE_WS_URL).')
+      return
+    }
+
     if (!url) {
       setSnapshot(null)
       setConnectionState('error')
-      setLastError('Online play needs VITE_WS_URL (run npm run dev:server).')
+      setLastError('Online play needs VITE_WS_URL (match server WebSocket URL).')
+      return
+    }
+
+    if (isSecurePage() && url.startsWith('ws://')) {
+      setSnapshot(null)
+      setConnectionState('error')
+      setLastError(
+        'This HTTPS site cannot use ws://. Put TLS on the VPS and set VITE_WS_URL to wss://…',
+      )
       return
     }
 
     setConnectionState('connecting')
     setLastError(null)
+    setSnapshot(null)
 
-    const socket = new WebSocket(url)
+    let socket: WebSocket
+    try {
+      socket = new WebSocket(url)
+    } catch (error) {
+      setConnectionState('error')
+      setLastError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to open WebSocket (use wss:// on HTTPS sites).',
+      )
+      return
+    }
+
     socketRef.current = socket
 
     socket.addEventListener('open', () => setConnectionState('open'))
-    socket.addEventListener('close', () => setConnectionState('closed'))
+    socket.addEventListener('close', () => {
+      setConnectionState((prev) => (prev === 'error' ? prev : 'closed'))
+    })
     socket.addEventListener('error', () => {
       setConnectionState('error')
-      setLastError('Connection failed.')
+      setLastError(
+        isSecurePage()
+          ? 'WebSocket failed. HTTPS pages need wss:// to the VPS.'
+          : 'Connection failed.',
+      )
     })
     socket.addEventListener('message', (event) => {
       try {
