@@ -1,11 +1,15 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
-const DEFAULT_WS_URL = 'ws://31.210.171.38:8787'
+const DEFAULT_WS_URL = 'wss://dice.lockersmoker.com'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const wsUrl = env.VITE_WS_URL?.trim() || DEFAULT_WS_URL
+  // Vercel injects env as process.env.*; loadEnv only reads .env files.
+  const wsUrl =
+    process.env.VITE_WS_URL?.trim() ||
+    env.VITE_WS_URL?.trim() ||
+    DEFAULT_WS_URL
 
   return {
     plugins: [react()],

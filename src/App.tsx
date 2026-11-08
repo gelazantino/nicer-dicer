@@ -232,26 +232,6 @@ export default function App() {
     )
   }
 
-  // Online: connecting before first snapshot
-  if (onlineSession && !snapshot) {
-    return (
-      <div className="app">
-        <section className="panel setup">
-          <h1 className="brand">Nicer Dicer</h1>
-          <p className="lede">
-            {connectionState === 'error'
-              ? lastError || 'Could not connect to match server.'
-              : `Connecting to room ${onlineSession.roomCode}…`}
-          </p>
-          <button type="button" className="btn" onClick={leaveOnline}>
-            Cancel
-          </button>
-        </section>
-        <LegendPanels state={state} />
-      </div>
-    )
-  }
-
   // Online match in progress / finished
   if (onlineSession && displayOnlineMatch && snapshot) {
     const opponentSeat: PlayerId = localSeat === 'p1' ? 'p2' : 'p1'
@@ -301,6 +281,32 @@ export default function App() {
         </main>
 
         <LegendPanels state={displayOnlineMatch} />
+      </div>
+    )
+  }
+
+  // Online: connecting, errors, or odd snapshot without a match UI
+  if (onlineSession) {
+    return (
+      <div className="app">
+        <section className="panel setup">
+          <h1 className="brand">Nicer Dicer</h1>
+          <p className="lede">
+            {connectionState === 'error' || lastError
+              ? lastError || 'Could not connect to match server.'
+              : `Connecting to room ${onlineSession.roomCode}…`}
+          </p>
+          {connectionState === 'error' || lastError ? (
+            <p className="setup-hint">
+              Vercel is HTTPS. The match server must use <code>wss://</code> (TLS
+              on the VPS), not <code>ws://</code>.
+            </p>
+          ) : null}
+          <button type="button" className="btn" onClick={leaveOnline}>
+            Cancel
+          </button>
+        </section>
+        <LegendPanels state={state} />
       </div>
     )
   }
