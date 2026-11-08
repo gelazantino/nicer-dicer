@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef } from 'react'
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { chooseAiAction } from './game/ai'
 import {
   bank,
@@ -7,6 +7,7 @@ import {
   createSetupState,
   fillLoadout,
   fillRandomLoadout,
+  personalizeOnlineMessage,
   resolveBust,
   roll,
   setLoadoutSlot,
@@ -14,9 +15,14 @@ import {
   startMatch,
   toggleSelect,
 } from './game/engine'
-import type { MatchState, TargetScore } from './game/types'
+import {
+  generateRoomCode,
+  normalizeRoomCode,
+} from './game/onlineProtocol'
+import type { MatchState, PlayerId, TargetScore } from './game/types'
 import { DiceTray } from './components/DiceTray'
-import { MatchSetup } from './components/MatchSetup'
+import { MatchSetup, type PlayModeChoice } from './components/MatchSetup'
+import { OnlineLobby } from './components/OnlineLobby'
 import { BadgesPanel } from './components/BadgesPanel'
 import { LoadedDicePanel } from './components/LoadedDicePanel'
 import { RulesPanel } from './components/RulesPanel'
@@ -24,6 +30,12 @@ import { ScoreBoard } from './components/ScoreBoard'
 import { TurnControls } from './components/TurnControls'
 import { DebugHud } from './debug/DebugHud'
 import { debugLog } from './debug/debugMode'
+import { getPartyKitHost } from './online/partyHost'
+import {
+  createOnlineSession,
+  useOnlineMatch,
+  type OnlineSession,
+} from './online/useOnlineMatch'
 
 type Action =
   | { type: 'set_target'; target: TargetScore }
@@ -63,9 +75,9 @@ function reducer(state: MatchState, action: Action): MatchState {
       return fillRandomLoadout(state)
     case 'start':
     case 'restart':
-      return startMatch(state.targetScore, state.humanLoadout)
+      return startMatch(state.targetScore, state.humanLoadout, 'solo')
     case 'new_match':
-      return createSetupState(state.targetScore, state.humanLoadout)
+      return createSetupState(state.targetScore, state.humanLoadout, 'solo')
     case 'roll':
       return roll(state)
     case 'toggle':
@@ -85,12 +97,53 @@ function reducer(state: MatchState, action: Action): MatchState {
   }
 }
 
+function LegendPanels({ state }: { state: MatchState }) {
+  return (
+    <>
+      <RulesPanel />
+      <LoadedDicePanel />
+      <BadgesPanel />
+      <DebugHud state={state} />
+    </>
+  )
+}
+
 export default function App() {
-  const [state, dispatch] = useReducer(reducer, undefined, () => createSetupState(4000))
+  const [state, dispatch] = useReducer(reducer, undefined, () =>
+    createSetupState(4000),
+  )
   const aiTimer = useRef<number | null>(null)
 
+  const [playMode, setPlayMode] = useState<PlayModeChoice>('solo')
+  const [joinCode, setJoinCode] = useState('')
+  const [onlineSession, setOnlineSession] = useState<OnlineSession | null>(null)
+  const onlineAvailable = Boolean(getPartyKitHost())
+
+  const {
+    snapshot,
+    connectionState,
+    lastError,
+    send,
+  } = useOnlineMatch(onlineSession)
+
+  const onlineMatch = snapshot?.match ?? null
+  const localSeat: PlayerId | undefined = snapshot?.seat ?? undefined
+
+  const displayOnlineMatch = useMemo(() => {
+    if (!onlineMatch || !localSeat) return onlineMatch
+    return {
+      ...onlineMatch,
+      message: personalizeOnlineMessage(onlineMatch.message, localSeat),
+    }
+  }, [onlineMatch, localSeat])
+
   const humanTurn =
-    state.phase === 'playing' && state.currentPlayer === 'human'
+    state.phase === 'playing' && state.currentPlayer === 'p1'
+
+  const onlineMyTurn =
+    Boolean(displayOnlineMatch) &&
+    displayOnlineMatch?.phase === 'playing' &&
+    displayOnlineMatch.currentPlayer === localSeat
 
   useEffect(() => {
     debugLog('state', {
@@ -101,10 +154,20 @@ export default function App() {
       throwId: state.throwId,
       lastEvent: state.lastEvent,
       loadout: state.humanLoadout,
+      online: Boolean(onlineSession),
     })
-  }, [state])
+  }, [state, onlineSession])
+
+  // Host pushes the setup target into the lobby once connected.
+  useEffect(() => {
+    if (!snapshot || snapshot.status !== 'lobby') return
+    if (snapshot.seat !== 'p1') return
+    if (snapshot.targetScore === state.targetScore) return
+    send({ type: 'set_target', target: state.targetScore })
+  }, [snapshot, state.targetScore, send])
 
   useEffect(() => {
+    if (onlineSession) return
     if (state.phase !== 'playing') return
 
     if (state.turnPhase === 'showing_bust') {
@@ -116,7 +179,7 @@ export default function App() {
       }
     }
 
-    if (state.currentPlayer !== 'ai') return
+    if (state.currentPlayer !== 'p2') return
 
     const action = chooseAiAction(state)
     if (!action) return
@@ -146,7 +209,101 @@ export default function App() {
     return () => {
       if (aiTimer.current !== null) window.clearTimeout(aiTimer.current)
     }
-  }, [state])
+  }, [state, onlineSession])
+
+  const leaveOnline = () => {
+    setOnlineSession(null)
+  }
+
+  // Online: lobby until match starts / after leave
+  if (onlineSession && snapshot && snapshot.status === 'lobby') {
+    return (
+      <div className="app">
+        <OnlineLobby
+          snapshot={snapshot}
+          connectionState={connectionState}
+          lastError={lastError}
+          onTargetChange={(target) => send({ type: 'set_target', target })}
+          onStart={() => send({ type: 'start' })}
+          onLeave={leaveOnline}
+        />
+        <LegendPanels state={state} />
+      </div>
+    )
+  }
+
+  // Online: connecting before first snapshot
+  if (onlineSession && !snapshot) {
+    return (
+      <div className="app">
+        <section className="panel setup">
+          <h1 className="brand">Nicer Dicer</h1>
+          <p className="lede">
+            {connectionState === 'error'
+              ? lastError || 'Could not connect to PartyKit.'
+              : `Connecting to room ${onlineSession.roomCode}…`}
+          </p>
+          <button type="button" className="btn" onClick={leaveOnline}>
+            Cancel
+          </button>
+        </section>
+        <LegendPanels state={state} />
+      </div>
+    )
+  }
+
+  // Online match in progress / finished
+  if (onlineSession && displayOnlineMatch && snapshot) {
+    const opponentSeat: PlayerId = localSeat === 'p1' ? 'p2' : 'p1'
+    const opponentConnected = snapshot.connected[opponentSeat]
+    const connectionHint =
+      connectionState !== 'open'
+        ? 'Reconnecting…'
+        : !opponentConnected
+          ? 'Opponent disconnected'
+          : null
+
+    const canAct =
+      onlineMyTurn || displayOnlineMatch.phase === 'game_over'
+
+    return (
+      <div className="app">
+        <ScoreBoard
+          state={displayOnlineMatch}
+          localSeat={localSeat}
+          connectionHint={connectionHint}
+          onRestart={() => send({ type: 'restart' })}
+        />
+
+        <main className="table">
+          <p className="brand-inline">Nicer Dicer</p>
+          <p className="online-room-inline">Room {snapshot.roomCode}</p>
+          <DiceTray
+            roll={displayOnlineMatch.roll}
+            selected={displayOnlineMatch.selected}
+            throwId={displayOnlineMatch.throwId}
+            interactive={
+              Boolean(onlineMyTurn) &&
+              displayOnlineMatch.turnPhase === 'need_select'
+            }
+            onToggle={(dieId) => send({ type: 'toggle', dieId })}
+          />
+          <TurnControls
+            state={displayOnlineMatch}
+            humanTurn={canAct}
+            onRoll={() => send({ type: 'roll' })}
+            onConfirm={() => send({ type: 'confirm' })}
+            onBank={() => send({ type: 'bank' })}
+            onReroll={() => send({ type: 'reroll' })}
+            onNewMatch={leaveOnline}
+            onRestart={() => send({ type: 'restart' })}
+          />
+        </main>
+
+        <LegendPanels state={displayOnlineMatch} />
+      </div>
+    )
+  }
 
   if (state.phase === 'setup') {
     return (
@@ -154,18 +311,33 @@ export default function App() {
         <MatchSetup
           targetScore={state.targetScore}
           humanLoadout={state.humanLoadout}
+          playMode={playMode}
+          onlineAvailable={onlineAvailable}
+          joinCode={joinCode}
+          onlineBusy={Boolean(onlineSession)}
+          onlineError={lastError}
+          onPlayModeChange={setPlayMode}
           onTargetChange={(target) => dispatch({ type: 'set_target', target })}
           onLoadoutSlotChange={(slot, dieTypeId) =>
             dispatch({ type: 'set_loadout_slot', slot, dieTypeId })
           }
-          onFillLoadout={(dieTypeId) => dispatch({ type: 'fill_loadout', dieTypeId })}
+          onFillLoadout={(dieTypeId) =>
+            dispatch({ type: 'fill_loadout', dieTypeId })
+          }
           onFillRandomLoadout={() => dispatch({ type: 'fill_random_loadout' })}
-          onStart={() => dispatch({ type: 'start' })}
+          onJoinCodeChange={(code) => setJoinCode(normalizeRoomCode(code))}
+          onStartSolo={() => dispatch({ type: 'start' })}
+          onCreateOnline={() => {
+            const code = generateRoomCode()
+            setOnlineSession(createOnlineSession(code))
+          }}
+          onJoinOnline={() => {
+            const code = normalizeRoomCode(joinCode)
+            if (code.length < 4) return
+            setOnlineSession(createOnlineSession(code))
+          }}
         />
-        <RulesPanel />
-        <LoadedDicePanel />
-        <BadgesPanel />
-        <DebugHud state={state} />
+        <LegendPanels state={state} />
       </div>
     )
   }
@@ -198,10 +370,7 @@ export default function App() {
         />
       </main>
 
-      <RulesPanel />
-      <LoadedDicePanel />
-      <BadgesPanel />
-      <DebugHud state={state} />
+      <LegendPanels state={state} />
     </div>
   )
 }
