@@ -298,8 +298,9 @@ export default function App() {
           </p>
           {connectionState === 'error' || lastError ? (
             <p className="setup-hint">
-              Vercel is HTTPS. The match server must use <code>wss://</code> (TLS
-              on the VPS), not <code>ws://</code>.
+              If the URL is already <code>wss://dice.lockersmoker.com</code>, check
+              DNS (some ISPs still return NXDOMAIN — try 1.1.1.1 / 8.8.8.8). Only
+              use <code>ws://</code> on local HTTP, never on Vercel HTTPS.
             </p>
           ) : null}
           <button type="button" className="btn" onClick={leaveOnline}>
