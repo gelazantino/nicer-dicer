@@ -35,6 +35,8 @@ import {
   useOnlineMatch,
   type OnlineSession,
 } from './online/useOnlineMatch'
+import { AuthPanel } from './auth/AuthPanel'
+import { InventoryPanel } from './inventory/InventoryPanel'
 import { getMatchServerWsBase } from './online/wsUrl'
 
 type Action =
@@ -344,6 +346,8 @@ export default function App() {
             setOnlineSession(createOnlineSession(code))
           }}
         />
+        <AuthPanel />
+        <InventoryPanel />
         <LegendPanels state={state} />
       </div>
     )

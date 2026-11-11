@@ -1049,6 +1049,136 @@ body {
   white-space: nowrap;
 }
 
+.panel-title {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  letter-spacing: 0.04em;
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: rgba(232, 220, 200, 0.2);
+  font-weight: 500;
+}
+
+.auth-panel,
+.inventory-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--cream-dim);
+}
+
+.auth-user {
+  margin: 0;
+  color: var(--cream-dim);
+}
+
+.inventory-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.inventory-header .panel-title {
+  margin: 0;
+}
+
+.inventory-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.inventory-subtitle {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cream-dim);
+}
+
+.inventory-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.inventory-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.6rem;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(232, 220, 200, 0.08);
+  border-radius: 8px;
+}
+
+.material-list li strong {
+  color: var(--ok);
+}
+
+.inventory-ok {
+  margin: 0;
+  color: var(--ok);
+  font-size: 0.9rem;
+}
+
+.craft-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.craft-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.75rem;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(232, 220, 200, 0.08);
+  border-radius: 8px;
+}
+
+.craft-card p {
+  margin: 0.25rem 0 0;
+  color: var(--cream-dim);
+  font-size: 0.85rem;
+}
+
+.craft-meta {
+  font-size: 0.8rem !important;
+  color: var(--cream) !important;
+}
+
+.craft-card .btn {
+  flex-shrink: 0;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.85rem;
+}
+
 @media (max-width: 520px) {
   .table {
     min-height: min(68vh, 560px);

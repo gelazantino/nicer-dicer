@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import { AuthProvider } from './auth/AuthContext'
 import { debugLog, isDebugMode } from './debug/debugMode'
 import './index.css'
 
@@ -11,6 +12,8 @@ if (isDebugMode) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </StrictMode>,
 )
