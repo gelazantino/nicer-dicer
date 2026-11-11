@@ -8,6 +8,7 @@
     "dev:debug": "vite --mode debug",
     "dev:server": "tsx server/index.ts",
     "start:server": "tsx server/index.ts",
+    "vps:setup": "bash scripts/vps-setup.sh",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },

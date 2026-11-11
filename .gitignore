@@ -17,10 +17,14 @@ data/
 *.sqlite
 *.sqlite-*
 
-# Local env (keep .env.example)
+# VPS secrets (created by scripts/vps-setup.sh)
+.env.server
+
+# Local env (keep examples)
 .env
 .env.*
 !.env.example
+!.env.server.example
 
 # Editor directories and files
 .vscode/*
