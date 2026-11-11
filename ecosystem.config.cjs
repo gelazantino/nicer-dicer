@@ -29,6 +29,7 @@ function loadEnvFile(filePath) {
 const root = __dirname
 const fileEnv = loadEnvFile(path.join(root, '.env.server'))
 const tsxBin = path.join(root, 'node_modules', 'tsx', 'dist', 'cli.mjs')
+const port = String(fileEnv.PORT || '8787')
 
 module.exports = {
   apps: [
@@ -38,14 +39,16 @@ module.exports = {
       script: tsxBin,
       args: 'server/index.ts',
       interpreter: 'node',
+      exec_mode: 'fork',
       instances: 1,
       autorestart: true,
       watch: false,
       max_memory_restart: '300M',
       env: {
         NODE_ENV: 'production',
-        PORT: fileEnv.PORT || '8787',
         ...fileEnv,
+        // Keep after spread so PORT cannot be clobbered / mis-parsed.
+        PORT: port,
       },
     },
   ],
