@@ -35,6 +35,10 @@ import {
   useOnlineMatch,
   type OnlineSession,
 } from './online/useOnlineMatch'
+import { AuthPanel } from './auth/AuthPanel'
+import { useAuth } from './auth/AuthContext'
+import { FriendsPanel } from './friends/FriendsPanel'
+import { InventoryPanel } from './inventory/InventoryPanel'
 import { getMatchServerWsBase } from './online/wsUrl'
 
 type Action =
@@ -109,6 +113,7 @@ function LegendPanels({ state }: { state: MatchState }) {
 }
 
 export default function App() {
+  const { token: authToken } = useAuth()
   const [state, dispatch] = useReducer(reducer, undefined, () =>
     createSetupState(4000),
   )
@@ -224,6 +229,9 @@ export default function App() {
           connectionState={connectionState}
           lastError={lastError}
           onTargetChange={(target) => send({ type: 'set_target', target })}
+          onLoadoutChange={(dieTypeIds) =>
+            send({ type: 'set_loadout', dieTypeIds })
+          }
           onStart={() => send({ type: 'start' })}
           onLeave={leaveOnline}
         />
@@ -336,14 +344,24 @@ export default function App() {
           onStartSolo={() => dispatch({ type: 'start' })}
           onCreateOnline={() => {
             const code = generateRoomCode()
-            setOnlineSession(createOnlineSession(code))
+            setOnlineSession(createOnlineSession(code, authToken))
           }}
           onJoinOnline={() => {
             const code = normalizeRoomCode(joinCode)
             if (code.length < 4) return
-            setOnlineSession(createOnlineSession(code))
+            setOnlineSession(createOnlineSession(code, authToken))
           }}
         />
+        <AuthPanel />
+        <FriendsPanel
+          onJoinRoom={(code) => {
+            const roomCode = normalizeRoomCode(code)
+            if (roomCode.length < 4) return
+            setPlayMode('online')
+            setOnlineSession(createOnlineSession(roomCode, authToken))
+          }}
+        />
+        <InventoryPanel />
         <LegendPanels state={state} />
       </div>
     )

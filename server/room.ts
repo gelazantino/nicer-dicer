@@ -2,6 +2,7 @@ import {
   bank,
   chooseReroll,
   confirmHold,
+  normalizeLoadout,
   resolveBust,
   roll,
   setSelection,
@@ -17,6 +18,11 @@ import type {
 import { normalizeRoomCode } from '../src/game/onlineProtocol.ts'
 import type { MatchState, PlayerId, TargetScore } from '../src/game/types.ts'
 import { defaultHumanLoadout } from '../src/game/weightedRoll.ts'
+import { AuthError, verifyAuthToken, type AuthUser } from './auth.ts'
+import {
+  assertUserOwnsLoadout,
+  InventoryError,
+} from './inventory.ts'
 
 const BUST_REVEAL_MS = 2200
 
@@ -30,6 +36,9 @@ export interface RoomConnection {
 interface SeatBinding {
   token: SeatToken
   connectionId: string | null
+  userId: string | null
+  username: string | null
+  loadout: string[]
 }
 
 /** Authoritative 1v1 room — used by the VPS WebSocket server. */
@@ -54,12 +63,22 @@ export class DiceRoom {
     return this.connections.size === 0
   }
 
-  connect(connection: RoomConnection, seatToken: string): PlayerId | null {
+  connect(
+    connection: RoomConnection,
+    seatToken: string,
+    user: AuthUser | null = null,
+  ): PlayerId | null {
     let seat = this.findSeatByToken(seatToken)
     if (!seat) {
-      seat = this.assignSeat(seatToken, connection.id)
+      seat = this.assignSeat(seatToken, connection.id, user)
     } else {
-      this.seats[seat] = { token: seatToken, connectionId: connection.id }
+      const existing = this.seats[seat]!
+      this.seats[seat] = {
+        ...existing,
+        connectionId: connection.id,
+        userId: user?.id ?? existing.userId,
+        username: user?.username ?? existing.username,
+      }
     }
 
     if (!seat) {
@@ -76,8 +95,9 @@ export class DiceRoom {
   disconnect(connectionId: string) {
     const meta = this.connectionMeta.get(connectionId)
     if (meta?.seat && this.seats[meta.seat]?.connectionId === connectionId) {
+      const seat = this.seats[meta.seat]!
       this.seats[meta.seat] = {
-        token: meta.seatToken,
+        ...seat,
         connectionId: null,
       }
     }
@@ -101,36 +121,103 @@ export class DiceRoom {
 
     const { seat } = meta
 
-    switch (data.type) {
-      case 'hello':
-        break
-      case 'set_target':
-        if (this.status !== 'lobby') break
-        if (data.target === 1500 || data.target === 4000) {
-          this.targetScore = data.target
+    void (async () => {
+      try {
+        switch (data.type) {
+          case 'hello':
+            break
+          case 'auth':
+            await this.handleAuth(connection, seat, data.token)
+            break
+          case 'set_target':
+            if (this.status !== 'lobby') break
+            if (data.target === 1500 || data.target === 4000) {
+              this.targetScore = data.target
+            }
+            break
+          case 'set_loadout':
+            this.handleSetLoadout(connection, seat, data.dieTypeIds)
+            break
+          case 'start':
+            this.handleStart(connection, seat)
+            break
+          case 'restart':
+            this.handleRestart(connection, seat)
+            break
+          case 'roll':
+          case 'toggle':
+          case 'select':
+          case 'confirm':
+          case 'bank':
+          case 'reroll':
+          case 'resolve_bust':
+            this.handleGameAction(connection, seat, data)
+            break
+          default:
+            connection.send({ type: 'error', message: 'Unknown action.' })
+            return
         }
-        break
-      case 'start':
-        this.handleStart(connection, seat)
-        break
-      case 'restart':
-        this.handleRestart(connection, seat)
-        break
-      case 'roll':
-      case 'toggle':
-      case 'select':
-      case 'confirm':
-      case 'bank':
-      case 'reroll':
-      case 'resolve_bust':
-        this.handleGameAction(connection, seat, data)
-        break
-      default:
-        connection.send({ type: 'error', message: 'Unknown action.' })
-        return
+        this.broadcastSnapshots()
+      } catch (error) {
+        const message =
+          error instanceof AuthError || error instanceof InventoryError
+            ? error.message
+            : 'Request failed.'
+        connection.send({ type: 'error', message })
+        this.broadcastSnapshots()
+      }
+    })()
+  }
+
+  private async handleAuth(
+    connection: RoomConnection,
+    seat: PlayerId,
+    token: string,
+  ) {
+    if (this.status !== 'lobby') {
+      connection.send({
+        type: 'error',
+        message: 'Can only link an account in the lobby.',
+      })
+      return
+    }
+    const user = await verifyAuthToken(token)
+    const binding = this.seats[seat]
+    if (!binding) return
+    this.seats[seat] = {
+      ...binding,
+      userId: user.id,
+      username: user.username,
+    }
+  }
+
+  private handleSetLoadout(
+    connection: RoomConnection,
+    seat: PlayerId,
+    dieTypeIds: string[],
+  ) {
+    if (this.status !== 'lobby') {
+      connection.send({
+        type: 'error',
+        message: 'Loadout can only be changed in the lobby.',
+      })
+      return
+    }
+    const binding = this.seats[seat]
+    if (!binding) return
+    if (!binding.userId) {
+      connection.send({
+        type: 'error',
+        message: 'Log in to choose dice from your inventory.',
+      })
+      return
     }
 
-    this.broadcastSnapshots()
+    const loadout = normalizeLoadout(
+      Array.isArray(dieTypeIds) ? dieTypeIds.map(String) : [],
+    )
+    assertUserOwnsLoadout(binding.userId, loadout)
+    this.seats[seat] = { ...binding, loadout }
   }
 
   private handleStart(connection: RoomConnection, seat: PlayerId) {
@@ -144,7 +231,12 @@ export class DiceRoom {
     }
     void seat
     this.clearBustTimer()
-    this.match = startMatch(this.targetScore, defaultHumanLoadout(), 'online')
+    this.match = startMatch(
+      this.targetScore,
+      this.seats.p1.loadout,
+      'online',
+      this.seats.p2.loadout,
+    )
     this.status = 'playing'
     this.maybeScheduleBust()
   }
@@ -156,7 +248,12 @@ export class DiceRoom {
     }
     void seat
     this.clearBustTimer()
-    this.match = startMatch(this.targetScore, defaultHumanLoadout(), 'online')
+    this.match = startMatch(
+      this.targetScore,
+      this.seats.p1.loadout,
+      'online',
+      this.seats.p2.loadout,
+    )
     this.status = 'playing'
     this.maybeScheduleBust()
   }
@@ -238,13 +335,24 @@ export class DiceRoom {
     return null
   }
 
-  private assignSeat(token: SeatToken, connectionId: string): PlayerId | null {
+  private assignSeat(
+    token: SeatToken,
+    connectionId: string,
+    user: AuthUser | null,
+  ): PlayerId | null {
+    const binding: SeatBinding = {
+      token,
+      connectionId,
+      userId: user?.id ?? null,
+      username: user?.username ?? null,
+      loadout: defaultHumanLoadout(),
+    }
     if (!this.seats.p1) {
-      this.seats.p1 = { token, connectionId }
+      this.seats.p1 = binding
       return 'p1'
     }
     if (!this.seats.p2) {
-      this.seats.p2 = { token, connectionId }
+      this.seats.p2 = binding
       return 'p2'
     }
     return null
@@ -263,6 +371,14 @@ export class DiceRoom {
       connected: {
         p1: Boolean(this.seats.p1?.connectionId),
         p2: Boolean(this.seats.p2?.connectionId),
+      },
+      usernames: {
+        p1: this.seats.p1?.username ?? null,
+        p2: this.seats.p2?.username ?? null,
+      },
+      loadouts: {
+        p1: this.seats.p1?.loadout ?? defaultHumanLoadout(),
+        p2: this.seats.p2?.loadout ?? defaultHumanLoadout(),
       },
       match: this.match,
       error: null,

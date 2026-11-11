@@ -34,10 +34,6 @@ function createTableDie(spec: DieSpec): TableDie {
   }
 }
 
-function loadoutSpecs(loadout: string[]): DieSpec[] {
-  return loadout.map((dieTypeId, loadoutSlot) => ({ dieTypeId, loadoutSlot }))
-}
-
 function fairSpecs(count: number): DieSpec[] {
   return Array.from({ length: count }, (_, loadoutSlot) => ({
     dieTypeId: ORDINARY_DIE_ID,
@@ -54,6 +50,7 @@ export function createSetupState(
   humanLoadout: string[] = defaultHumanLoadout(),
   mode: MatchMode = 'solo',
 ): MatchState {
+  const p1 = normalizeLoadout(humanLoadout)
   return {
     phase: 'setup',
     turnPhase: 'need_roll',
@@ -67,7 +64,8 @@ export function createSetupState(
     diceToRoll: 6,
     pendingRollSpecs: null,
     throwId: 0,
-    humanLoadout: normalizeLoadout(humanLoadout),
+    humanLoadout: p1,
+    loadouts: { p1, p2: defaultHumanLoadout() },
     message: null,
     winner: null,
     lastEvent: null,
@@ -80,6 +78,15 @@ export function normalizeLoadout(loadout: string[]): string[] {
   return next.map((id) => id || ORDINARY_DIE_ID)
 }
 
+function withP1Loadout(state: MatchState, p1: string[]): MatchState {
+  const humanLoadout = normalizeLoadout(p1)
+  return {
+    ...state,
+    humanLoadout,
+    loadouts: { ...state.loadouts, p1: humanLoadout },
+  }
+}
+
 export function setLoadoutSlot(
   state: MatchState,
   slot: number,
@@ -89,7 +96,7 @@ export function setLoadoutSlot(
   if (slot < 0 || slot > 5) return state
   const humanLoadout = [...state.humanLoadout]
   humanLoadout[slot] = dieTypeId || ORDINARY_DIE_ID
-  return { ...state, humanLoadout }
+  return withP1Loadout(state, humanLoadout)
 }
 
 export function fillLoadout(
@@ -97,37 +104,43 @@ export function fillLoadout(
   dieTypeId: string,
 ): MatchState {
   if (state.phase !== 'setup') return state
-  return {
-    ...state,
-    humanLoadout: Array.from({ length: 6 }, () => dieTypeId || ORDINARY_DIE_ID),
-  }
+  return withP1Loadout(
+    state,
+    Array.from({ length: 6 }, () => dieTypeId || ORDINARY_DIE_ID),
+  )
 }
 
 export function fillRandomLoadout(state: MatchState): MatchState {
   if (state.phase !== 'setup') return state
   const ids = KCD_DICE_LEGEND.map((die) => die.id)
   if (ids.length === 0) return state
-  return {
-    ...state,
-    humanLoadout: Array.from({ length: 6 }, () => {
+  return withP1Loadout(
+    state,
+    Array.from({ length: 6 }, () => {
       const pick = ids[Math.floor(Math.random() * ids.length)]
       return pick ?? ORDINARY_DIE_ID
     }),
-  }
+  )
 }
 
 export function startMatch(
   targetScore: TargetScore,
   humanLoadout: string[] = defaultHumanLoadout(),
   mode: MatchMode = 'solo',
+  opponentLoadout: string[] = defaultHumanLoadout(),
 ): MatchState {
-  const fair =
-    mode === 'online' ? defaultHumanLoadout() : normalizeLoadout(humanLoadout)
+  const p1 = normalizeLoadout(humanLoadout)
+  const p2 =
+    mode === 'online'
+      ? normalizeLoadout(opponentLoadout)
+      : defaultHumanLoadout()
   return {
-    ...createSetupState(targetScore, fair, mode),
+    ...createSetupState(targetScore, p1, mode),
     phase: 'playing',
     turnPhase: 'need_roll',
     currentPlayer: 'p1',
+    humanLoadout: p1,
+    loadouts: { p1, p2 },
     message: turnStartMessage('p1', mode),
     lastEvent: null,
   }
@@ -224,15 +237,24 @@ export function setSelection(state: MatchState, ids: string[]): MatchState {
   return { ...state, selected, lastEvent: null }
 }
 
+function specsFromLoadout(loadout: string[], count: number): DieSpec[] {
+  return normalizeLoadout(loadout)
+    .slice(0, count)
+    .map((dieTypeId, loadoutSlot) => ({ dieTypeId, loadoutSlot }))
+}
+
 function specsForRoll(state: MatchState): DieSpec[] {
   if (state.pendingRollSpecs && state.pendingRollSpecs.length > 0) {
     return state.pendingRollSpecs
   }
   if (state.mode === 'online') {
-    return fairSpecs(state.diceToRoll)
+    return specsFromLoadout(
+      state.loadouts[state.currentPlayer],
+      state.diceToRoll,
+    )
   }
   if (state.currentPlayer === 'p1') {
-    return loadoutSpecs(state.humanLoadout)
+    return specsFromLoadout(state.loadouts.p1, state.diceToRoll)
   }
   return fairSpecs(state.diceToRoll)
 }

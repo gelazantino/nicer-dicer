@@ -9,13 +9,19 @@ export interface OnlineRoomSnapshot {
   seat: PlayerId | null
   seats: { p1: boolean; p2: boolean }
   connected: { p1: boolean; p2: boolean }
+  /** Display names when the seat is linked to an account. */
+  usernames: { p1: string | null; p2: string | null }
+  /** Chosen 6-die loadouts for each seat (visible to both players). */
+  loadouts: { p1: string[]; p2: string[] }
   match: MatchState | null
   error: string | null
 }
 
 export type ClientToServerMessage =
   | { type: 'hello'; seatToken: string }
+  | { type: 'auth'; token: string }
   | { type: 'set_target'; target: TargetScore }
+  | { type: 'set_loadout'; dieTypeIds: string[] }
   | { type: 'start' }
   | { type: 'restart' }
   | { type: 'roll' }

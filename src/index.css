@@ -1049,6 +1049,245 @@ body {
   white-space: nowrap;
 }
 
+.panel-title {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  letter-spacing: 0.04em;
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: rgba(232, 220, 200, 0.2);
+  font-weight: 500;
+}
+
+.auth-panel,
+.inventory-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--cream-dim);
+}
+
+.auth-user {
+  margin: 0;
+  color: var(--cream-dim);
+}
+
+.inventory-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.inventory-header .panel-title {
+  margin: 0;
+}
+
+.inventory-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.inventory-subtitle {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cream-dim);
+}
+
+.inventory-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.inventory-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.6rem;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(232, 220, 200, 0.08);
+  border-radius: 8px;
+}
+
+.material-list li strong {
+  color: var(--ok);
+}
+
+.inventory-ok {
+  margin: 0;
+  color: var(--ok);
+  font-size: 0.9rem;
+}
+
+.craft-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.craft-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.75rem;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(232, 220, 200, 0.08);
+  border-radius: 8px;
+}
+
+.craft-card p {
+  margin: 0.25rem 0 0;
+  color: var(--cream-dim);
+  font-size: 0.85rem;
+}
+
+.craft-meta {
+  font-size: 0.8rem !important;
+  color: var(--cream) !important;
+}
+
+.craft-card .btn {
+  flex-shrink: 0;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+.online-loadout {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.75rem 0.85rem;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(232, 220, 200, 0.08);
+  border-radius: 10px;
+}
+
+.online-loadout-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.online-loadout-header .inventory-subtitle {
+  margin: 0;
+}
+
+.online-loadout-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.55rem;
+}
+
+.online-loadout-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.45rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  border: 1px solid rgba(232, 220, 200, 0.08);
+}
+
+.online-loadout-slot .slot-index {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cream-dim);
+}
+
+.online-loadout-slot select {
+  width: 100%;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--cream);
+  background: rgba(18, 14, 11, 0.65);
+  border: 1px solid rgba(232, 220, 200, 0.2);
+  border-radius: 6px;
+  padding: 0.3rem 0.35rem;
+}
+
+.online-loadout-name {
+  font-size: 0.8rem;
+  color: var(--cream-dim);
+}
+
+.friends-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.friends-add {
+  margin-bottom: 0.25rem;
+}
+
+.friends-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.friends-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.55rem 0.65rem;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(232, 220, 200, 0.08);
+  border-radius: 8px;
+}
+
+.friends-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.friends-actions .btn {
+  padding: 0.4rem 0.7rem;
+  font-size: 0.82rem;
+}
+
+.friends-meta {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  color: var(--cream-dim);
+}
+
 @media (max-width: 520px) {
   .table {
     min-height: min(68vh, 560px);
