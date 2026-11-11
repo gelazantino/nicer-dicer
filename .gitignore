@@ -17,6 +17,9 @@ data/
 *.sqlite
 *.sqlite-*
 
+# VPS secrets (created by scripts/vps-setup.sh)
+.env.server
+
 # Local env (keep .env.example)
 .env
 .env.*

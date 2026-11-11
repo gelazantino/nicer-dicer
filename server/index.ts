@@ -11,6 +11,9 @@ import {
   verifyBearerToken,
 } from './auth.ts'
 import { initDb } from './db.ts'
+import { loadServerEnv } from './loadEnv.ts'
+
+loadServerEnv()
 import {
   applyCors,
   HttpError,
