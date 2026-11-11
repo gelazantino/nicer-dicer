@@ -37,6 +37,7 @@ import {
 } from './online/useOnlineMatch'
 import { AuthPanel } from './auth/AuthPanel'
 import { useAuth } from './auth/AuthContext'
+import { FriendsPanel } from './friends/FriendsPanel'
 import { InventoryPanel } from './inventory/InventoryPanel'
 import { getMatchServerWsBase } from './online/wsUrl'
 
@@ -352,6 +353,14 @@ export default function App() {
           }}
         />
         <AuthPanel />
+        <FriendsPanel
+          onJoinRoom={(code) => {
+            const roomCode = normalizeRoomCode(code)
+            if (roomCode.length < 4) return
+            setPlayMode('online')
+            setOnlineSession(createOnlineSession(roomCode, authToken))
+          }}
+        />
         <InventoryPanel />
         <LegendPanels state={state} />
       </div>

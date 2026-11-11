@@ -123,3 +123,110 @@ export function craftItem(
     body: JSON.stringify({ recipeId }),
   })
 }
+
+export type FriendUser = {
+  id: string
+  username: string
+}
+
+export type FriendshipRow = {
+  id: string
+  status: 'pending' | 'accepted'
+  createdAt: string
+  user: FriendUser
+  direction: 'incoming' | 'outgoing' | 'friend'
+}
+
+export type FriendsList = {
+  friends: FriendshipRow[]
+  incoming: FriendshipRow[]
+  outgoing: FriendshipRow[]
+}
+
+export type InvitationRow = {
+  id: string
+  roomCode: string
+  status: string
+  createdAt: string
+  from: FriendUser
+  to: FriendUser
+}
+
+export type InvitationsList = {
+  incoming: InvitationRow[]
+  outgoing: InvitationRow[]
+}
+
+export function fetchFriends(token: string): Promise<FriendsList> {
+  return apiFetch<FriendsList>('/me/friends', { token })
+}
+
+export function requestFriend(
+  token: string,
+  username: string,
+): Promise<FriendsList & { request: FriendshipRow }> {
+  return apiFetch<FriendsList & { request: FriendshipRow }>(
+    '/me/friends/request',
+    {
+      method: 'POST',
+      token,
+      body: JSON.stringify({ username }),
+    },
+  )
+}
+
+export function respondToFriendRequest(
+  token: string,
+  friendshipId: string,
+  accept: boolean,
+): Promise<FriendsList> {
+  return apiFetch<FriendsList>('/me/friends/respond', {
+    method: 'POST',
+    token,
+    body: JSON.stringify({ friendshipId, accept }),
+  })
+}
+
+export function removeFriend(
+  token: string,
+  friendshipId: string,
+): Promise<FriendsList> {
+  return apiFetch<FriendsList>('/me/friends/remove', {
+    method: 'POST',
+    token,
+    body: JSON.stringify({ friendshipId }),
+  })
+}
+
+export function fetchInvitations(token: string): Promise<InvitationsList> {
+  return apiFetch<InvitationsList>('/me/invitations', { token })
+}
+
+export function sendPlayInvite(
+  token: string,
+  userId: string,
+): Promise<{ invitation: InvitationRow; invitations: InvitationsList }> {
+  return apiFetch<{ invitation: InvitationRow; invitations: InvitationsList }>(
+    '/me/invitations',
+    {
+      method: 'POST',
+      token,
+      body: JSON.stringify({ userId }),
+    },
+  )
+}
+
+export function respondToPlayInvite(
+  token: string,
+  invitationId: string,
+  accept: boolean,
+): Promise<{ roomCode: string | null; invitations: InvitationsList }> {
+  return apiFetch<{ roomCode: string | null; invitations: InvitationsList }>(
+    '/me/invitations/respond',
+    {
+      method: 'POST',
+      token,
+      body: JSON.stringify({ invitationId, accept }),
+    },
+  )
+}

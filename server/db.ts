@@ -75,6 +75,35 @@ export function initDb(dbPath = process.env.SQLITE_PATH || defaultPath): Databas
       qty INTEGER NOT NULL DEFAULT 0 CHECK (qty >= 0),
       UNIQUE (user_id, badge_id)
     );
+
+    CREATE TABLE IF NOT EXISTS friendships (
+      id TEXT PRIMARY KEY NOT NULL,
+      requester_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      addressee_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL CHECK (status IN ('pending', 'accepted')),
+      created_at TEXT NOT NULL,
+      UNIQUE (requester_id, addressee_id),
+      CHECK (requester_id <> addressee_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS play_invitations (
+      id TEXT PRIMARY KEY NOT NULL,
+      from_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      to_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      room_code TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (
+        status IN ('pending', 'accepted', 'declined', 'cancelled', 'expired')
+      ),
+      created_at TEXT NOT NULL,
+      CHECK (from_user_id <> to_user_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_friendships_requester
+      ON friendships(requester_id);
+    CREATE INDEX IF NOT EXISTS idx_friendships_addressee
+      ON friendships(addressee_id);
+    CREATE INDEX IF NOT EXISTS idx_invites_to_pending
+      ON play_invitations(to_user_id, status);
   `)
   return db
 }

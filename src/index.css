@@ -1239,6 +1239,55 @@ body {
   color: var(--cream-dim);
 }
 
+.friends-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.friends-add {
+  margin-bottom: 0.25rem;
+}
+
+.friends-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.friends-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.55rem 0.65rem;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(232, 220, 200, 0.08);
+  border-radius: 8px;
+}
+
+.friends-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.friends-actions .btn {
+  padding: 0.4rem 0.7rem;
+  font-size: 0.82rem;
+}
+
+.friends-meta {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  color: var(--cream-dim);
+}
+
 @media (max-width: 520px) {
   .table {
     min-height: min(68vh, 560px);
