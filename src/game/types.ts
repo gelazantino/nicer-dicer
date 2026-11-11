@@ -47,8 +47,13 @@ export interface MatchState {
   pendingRollSpecs: DieSpec[] | null
   /** Bumps on every physical throw so the UI can replay scatter animation. */
   throwId: number
-  /** P1 die types (debug loadout in solo; ordinary fair dice online). */
+  /**
+   * P1 die types for solo setup/debug UI.
+   * Kept in sync with `loadouts.p1`.
+   */
   humanLoadout: string[]
+  /** Per-seat die types used when rolling (solo AI uses fair dice). */
+  loadouts: Record<PlayerId, string[]>
   message: string | null
   winner: PlayerId | null
   lastEvent: 'bust' | 'hot_dice' | 'bank' | 'win' | null

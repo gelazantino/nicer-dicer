@@ -7,6 +7,7 @@ import {
   AuthError,
   loginUser,
   registerUser,
+  verifyAuthToken,
   verifyBearerToken,
 } from './auth.ts'
 import { initDb } from './db.ts'
@@ -141,50 +142,67 @@ const server = createServer((req, res) => {
 const wss = new WebSocketServer({ server, path: '/ws' })
 
 wss.on('connection', (socket: WebSocket, req) => {
-  const url = new URL(req.url || '/ws', 'http://localhost')
-  const roomCode = normalizeRoomCode(url.searchParams.get('room') || '')
-  const seatToken = url.searchParams.get('seatToken') || randomUUID()
+  void (async () => {
+    const url = new URL(req.url || '/ws', 'http://localhost')
+    const roomCode = normalizeRoomCode(url.searchParams.get('room') || '')
+    const seatToken = url.searchParams.get('seatToken') || randomUUID()
+    const authToken = url.searchParams.get('authToken')
 
-  if (roomCode.length < 4) {
-    socket.send(
-      JSON.stringify({
-        type: 'error',
-        message: 'Missing or invalid room code.',
-      } satisfies ServerToClientMessage),
-    )
-    socket.close(1008, 'Invalid room')
-    return
-  }
-
-  const room = getOrCreateRoom(roomCode)
-  const connectionId = randomUUID()
-
-  const send = (message: ServerToClientMessage) => {
-    if (socket.readyState === socket.OPEN) {
-      socket.send(JSON.stringify(message))
+    if (roomCode.length < 4) {
+      socket.send(
+        JSON.stringify({
+          type: 'error',
+          message: 'Missing or invalid room code.',
+        } satisfies ServerToClientMessage),
+      )
+      socket.close(1008, 'Invalid room')
+      return
     }
-  }
 
-  const seat = room.connect({ id: connectionId, send }, seatToken)
-  if (!seat) {
-    socket.close(1013, 'Room full')
-    cleanupRoom(room)
-    return
-  }
+    let user = null
+    if (authToken) {
+      try {
+        user = await verifyAuthToken(authToken)
+      } catch {
+        socket.send(
+          JSON.stringify({
+            type: 'error',
+            message: 'Invalid login — connecting as guest (fair dice only).',
+          } satisfies ServerToClientMessage),
+        )
+      }
+    }
 
-  socket.on('message', (data) => {
-    room.handleMessage(connectionId, String(data))
-  })
+    const room = getOrCreateRoom(roomCode)
+    const connectionId = randomUUID()
 
-  socket.on('close', () => {
-    room.disconnect(connectionId)
-    cleanupRoom(room)
-  })
+    const send = (message: ServerToClientMessage) => {
+      if (socket.readyState === socket.OPEN) {
+        socket.send(JSON.stringify(message))
+      }
+    }
 
-  socket.on('error', () => {
-    room.disconnect(connectionId)
-    cleanupRoom(room)
-  })
+    const seat = room.connect({ id: connectionId, send }, seatToken, user)
+    if (!seat) {
+      socket.close(1013, 'Room full')
+      cleanupRoom(room)
+      return
+    }
+
+    socket.on('message', (data) => {
+      room.handleMessage(connectionId, String(data))
+    })
+
+    socket.on('close', () => {
+      room.disconnect(connectionId)
+      cleanupRoom(room)
+    })
+
+    socket.on('error', () => {
+      room.disconnect(connectionId)
+      cleanupRoom(room)
+    })
+  })()
 })
 
 server.listen(PORT, () => {

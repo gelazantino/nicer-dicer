@@ -10,6 +10,7 @@ import { buildMatchSocketUrl, getMatchServerWsBase } from './wsUrl'
 export interface OnlineSession {
   roomCode: string
   seatToken: string
+  authToken: string | null
 }
 
 function isSecurePage(): boolean {
@@ -36,7 +37,11 @@ export function useOnlineMatch(session: OnlineSession | null) {
 
     let url: string | null = null
     try {
-      url = buildMatchSocketUrl(session.roomCode, session.seatToken)
+      url = buildMatchSocketUrl(
+        session.roomCode,
+        session.seatToken,
+        session.authToken,
+      )
     } catch {
       setSnapshot(null)
       setConnectionState('error')
@@ -109,7 +114,7 @@ export function useOnlineMatch(session: OnlineSession | null) {
       socket.close()
       if (socketRef.current === socket) socketRef.current = null
     }
-  }, [session?.roomCode, session?.seatToken])
+  }, [session?.roomCode, session?.seatToken, session?.authToken])
 
   const send = useCallback((message: ClientToServerMessage) => {
     const socket = socketRef.current
@@ -126,9 +131,13 @@ export function useOnlineMatch(session: OnlineSession | null) {
   }
 }
 
-export function createOnlineSession(roomCode: string): OnlineSession {
+export function createOnlineSession(
+  roomCode: string,
+  authToken: string | null = null,
+): OnlineSession {
   return {
     roomCode,
     seatToken: getOrCreateSeatToken(roomCode),
+    authToken,
   }
 }

@@ -106,17 +106,12 @@ export async function signToken(user: AuthUser): Promise<string> {
     .sign(JWT_SECRET)
 }
 
-export async function verifyBearerToken(
-  authorization: string | undefined,
-): Promise<AuthUser> {
-  if (!authorization?.startsWith('Bearer ')) {
-    throw new AuthError(401, 'Missing auth token.')
-  }
-  const token = authorization.slice('Bearer '.length).trim()
-  if (!token) throw new AuthError(401, 'Missing auth token.')
+export async function verifyAuthToken(token: string): Promise<AuthUser> {
+  const raw = token.trim()
+  if (!raw) throw new AuthError(401, 'Missing auth token.')
 
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET)
+    const { payload } = await jwtVerify(raw, JWT_SECRET)
     const id = typeof payload.sub === 'string' ? payload.sub : ''
     const username =
       typeof payload.username === 'string' ? payload.username : ''
@@ -131,6 +126,15 @@ export async function verifyBearerToken(
     if (error instanceof AuthError) throw error
     throw new AuthError(401, 'Invalid or expired auth token.')
   }
+}
+
+export async function verifyBearerToken(
+  authorization: string | undefined,
+): Promise<AuthUser> {
+  if (!authorization?.startsWith('Bearer ')) {
+    throw new AuthError(401, 'Missing auth token.')
+  }
+  return verifyAuthToken(authorization.slice('Bearer '.length))
 }
 
 export class AuthError extends Error {

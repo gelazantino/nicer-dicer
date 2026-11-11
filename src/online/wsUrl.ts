@@ -8,11 +8,15 @@ export function getMatchServerWsBase(): string | null {
 export function buildMatchSocketUrl(
   roomCode: string,
   seatToken: string,
+  authToken?: string | null,
 ): string | null {
   const base = getMatchServerWsBase()
   if (!base) return null
   const url = new URL(`${base}/ws`)
   url.searchParams.set('room', roomCode)
   url.searchParams.set('seatToken', seatToken)
+  if (authToken?.trim()) {
+    url.searchParams.set('authToken', authToken.trim())
+  }
   return url.toString()
 }

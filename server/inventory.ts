@@ -5,6 +5,7 @@ import {
   withTransaction,
   type MaterialTier,
 } from './db.ts'
+import { normalizeLoadout } from '../src/game/engine.ts'
 import { getRecipe, type CraftRecipe } from './recipes.ts'
 
 export type InventorySnapshot = {
@@ -190,6 +191,32 @@ export function addBadge(
 
 function emptyMaterials(): Record<MaterialTier, number> {
   return { wood: 0, tin: 0, silver: 0, gold: 0 }
+}
+
+/** Ensure the user owns enough of each die type for the 6-slot loadout. */
+export function assertUserOwnsLoadout(
+  userId: string,
+  loadout: string[],
+): void {
+  const normalized = normalizeLoadout(loadout)
+  const needed = new Map<string, number>()
+  for (const dieTypeId of normalized) {
+    needed.set(dieTypeId, (needed.get(dieTypeId) ?? 0) + 1)
+  }
+
+  const owned = new Map(
+    getInventory(userId).dice.map((row) => [row.dieTypeId, row.qty]),
+  )
+
+  for (const [dieTypeId, qty] of needed) {
+    const have = owned.get(dieTypeId) ?? 0
+    if (have < qty) {
+      throw new InventoryError(
+        400,
+        `Need ${qty}× ${dieTypeId}, you have ${have}.`,
+      )
+    }
+  }
 }
 
 export class InventoryError extends Error {
