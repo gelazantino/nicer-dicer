@@ -101,11 +101,11 @@ if ! command -v pm2 >/dev/null 2>&1; then
 fi
 
 echo "==> Starting/restarting pm2 app '$APP_NAME'"
+# Delete + start so an old PM2 entry (e.g. running .ts via bash) cannot linger.
 if pm2 describe "$APP_NAME" >/dev/null 2>&1; then
-  pm2 reload ecosystem.config.cjs --update-env
-else
-  pm2 start ecosystem.config.cjs
+  pm2 delete "$APP_NAME" >/dev/null
 fi
+pm2 start ecosystem.config.cjs
 pm2 save
 echo "    tip: run 'pm2 startup' once so it survives reboot"
 
