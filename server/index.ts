@@ -11,9 +11,6 @@ import {
   verifyBearerToken,
 } from './auth.ts'
 import { initDb } from './db.ts'
-import { loadServerEnv } from './loadEnv.ts'
-
-loadServerEnv()
 import {
   applyCors,
   HttpError,
@@ -33,8 +30,11 @@ import {
   sendPlayInvite,
 } from './friends.ts'
 import { craftRecipe, getInventory, InventoryError } from './inventory.ts'
+import { loadServerEnv } from './loadEnv.ts'
 import { CRAFT_RECIPES } from './recipes.ts'
 import { DiceRoom } from './room.ts'
+
+loadServerEnv()
 
 const PORT = Number(process.env.PORT || 8787)
 /** Keep empty rooms alive so brief disconnects can reclaim the same seat/match. */

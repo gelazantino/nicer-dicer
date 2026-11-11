@@ -20,10 +20,11 @@ data/
 # VPS secrets (created by scripts/vps-setup.sh)
 .env.server
 
-# Local env (keep .env.example)
+# Local env (keep examples)
 .env
 .env.*
 !.env.example
+!.env.server.example
 
 # Editor directories and files
 .vscode/*
