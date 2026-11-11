@@ -129,8 +129,11 @@ export function OnlineLobby({
       {connectionState !== 'open' && (
         <p className="online-error">
           {connectionState === 'connecting'
-            ? 'Connecting…'
-            : 'Disconnected — trying to reconnect…'}
+            ? lastError?.startsWith('Connection lost') ||
+              lastError?.includes('reconnecting')
+              ? lastError
+              : 'Connecting…'
+            : lastError || 'Disconnected — reconnecting…'}
         </p>
       )}
 
