@@ -28,14 +28,16 @@ function loadEnvFile(filePath) {
 
 const root = __dirname
 const fileEnv = loadEnvFile(path.join(root, '.env.server'))
+const tsxBin = path.join(root, 'node_modules', 'tsx', 'dist', 'cli.mjs')
 
 module.exports = {
   apps: [
     {
       name: 'nicer-dicer',
       cwd: root,
-      script: 'node_modules/tsx/dist/cli.mjs',
+      script: tsxBin,
       args: 'server/index.ts',
+      interpreter: 'node',
       instances: 1,
       autorestart: true,
       watch: false,
