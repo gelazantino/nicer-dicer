@@ -20,15 +20,13 @@ import {
   normalizeRoomCode,
 } from './game/onlineProtocol'
 import type { MatchState, PlayerId, TargetScore } from './game/types'
+import { AppShell, type HubTab } from './components/AppShell'
 import { DiceTray } from './components/DiceTray'
+import { GuidePanel } from './components/GuidePanel'
 import { MatchSetup, type PlayModeChoice } from './components/MatchSetup'
 import { OnlineLobby } from './components/OnlineLobby'
-import { BadgesPanel } from './components/BadgesPanel'
-import { LoadedDicePanel } from './components/LoadedDicePanel'
-import { RulesPanel } from './components/RulesPanel'
 import { ScoreBoard } from './components/ScoreBoard'
 import { TurnControls } from './components/TurnControls'
-import { DebugHud } from './debug/DebugHud'
 import { debugLog } from './debug/debugMode'
 import {
   createOnlineSession,
@@ -38,6 +36,7 @@ import {
 import { AuthPanel } from './auth/AuthPanel'
 import { useAuth } from './auth/AuthContext'
 import { FriendsPanel } from './friends/FriendsPanel'
+import { useIncomingPlayInvites } from './friends/useIncomingPlayInvites'
 import { InventoryPanel } from './inventory/InventoryPanel'
 import { getMatchServerWsBase } from './online/wsUrl'
 
@@ -101,17 +100,6 @@ function reducer(state: MatchState, action: Action): MatchState {
   }
 }
 
-function LegendPanels({ state }: { state: MatchState }) {
-  return (
-    <>
-      <RulesPanel />
-      <LoadedDicePanel />
-      <BadgesPanel />
-      <DebugHud state={state} />
-    </>
-  )
-}
-
 export default function App() {
   const { token: authToken } = useAuth()
   const [state, dispatch] = useReducer(reducer, undefined, () =>
@@ -122,7 +110,12 @@ export default function App() {
   const [playMode, setPlayMode] = useState<PlayModeChoice>('solo')
   const [joinCode, setJoinCode] = useState('')
   const [onlineSession, setOnlineSession] = useState<OnlineSession | null>(null)
+  const [hubTab, setHubTab] = useState<HubTab>('play')
   const onlineAvailable = Boolean(getMatchServerWsBase())
+  const {
+    count: friendsInviteCount,
+    setIncomingCount: setFriendsInviteCount,
+  } = useIncomingPlayInvites()
 
   const {
     snapshot,
@@ -218,12 +211,21 @@ export default function App() {
 
   const leaveOnline = () => {
     setOnlineSession(null)
+    setHubTab('play')
+  }
+
+  const joinOnlineRoom = (code: string) => {
+    const roomCode = normalizeRoomCode(code)
+    if (roomCode.length < 4) return
+    setPlayMode('online')
+    setHubTab('play')
+    setOnlineSession(createOnlineSession(roomCode, authToken))
   }
 
   // Online: lobby until match starts / after leave
   if (onlineSession && snapshot && snapshot.status === 'lobby') {
     return (
-      <div className="app">
+      <div className="app app-match">
         <OnlineLobby
           snapshot={snapshot}
           connectionState={connectionState}
@@ -235,7 +237,6 @@ export default function App() {
           onStart={() => send({ type: 'start' })}
           onLeave={leaveOnline}
         />
-        <LegendPanels state={state} />
       </div>
     )
   }
@@ -255,7 +256,7 @@ export default function App() {
       onlineMyTurn || displayOnlineMatch.phase === 'game_over'
 
     return (
-      <div className="app">
+      <div className="app app-match">
         <ScoreBoard
           state={displayOnlineMatch}
           localSeat={localSeat}
@@ -287,8 +288,6 @@ export default function App() {
             onRestart={() => send({ type: 'restart' })}
           />
         </main>
-
-        <LegendPanels state={displayOnlineMatch} />
       </div>
     )
   }
@@ -296,8 +295,8 @@ export default function App() {
   // Online: connecting, errors, or odd snapshot without a match UI
   if (onlineSession) {
     return (
-      <div className="app">
-        <section className="panel setup">
+      <div className="app app-match">
+        <section className="hub-section setup">
           <h1 className="brand">Nicer Dicer</h1>
           <p className="lede">
             {connectionState === 'error' || lastError
@@ -315,60 +314,64 @@ export default function App() {
             Cancel
           </button>
         </section>
-        <LegendPanels state={state} />
       </div>
     )
   }
 
   if (state.phase === 'setup') {
     return (
-      <div className="app">
-        <MatchSetup
-          targetScore={state.targetScore}
-          humanLoadout={state.humanLoadout}
-          playMode={playMode}
-          onlineAvailable={onlineAvailable}
-          joinCode={joinCode}
-          onlineBusy={Boolean(onlineSession)}
-          onlineError={lastError}
-          onPlayModeChange={setPlayMode}
-          onTargetChange={(target) => dispatch({ type: 'set_target', target })}
-          onLoadoutSlotChange={(slot, dieTypeId) =>
-            dispatch({ type: 'set_loadout_slot', slot, dieTypeId })
-          }
-          onFillLoadout={(dieTypeId) =>
-            dispatch({ type: 'fill_loadout', dieTypeId })
-          }
-          onFillRandomLoadout={() => dispatch({ type: 'fill_random_loadout' })}
-          onJoinCodeChange={(code) => setJoinCode(normalizeRoomCode(code))}
-          onStartSolo={() => dispatch({ type: 'start' })}
-          onCreateOnline={() => {
-            const code = generateRoomCode()
-            setOnlineSession(createOnlineSession(code, authToken))
-          }}
-          onJoinOnline={() => {
-            const code = normalizeRoomCode(joinCode)
-            if (code.length < 4) return
-            setOnlineSession(createOnlineSession(code, authToken))
-          }}
-        />
-        <AuthPanel />
-        <FriendsPanel
-          onJoinRoom={(code) => {
-            const roomCode = normalizeRoomCode(code)
-            if (roomCode.length < 4) return
-            setPlayMode('online')
-            setOnlineSession(createOnlineSession(roomCode, authToken))
-          }}
-        />
-        <InventoryPanel />
-        <LegendPanels state={state} />
-      </div>
+      <AppShell
+        activeTab={hubTab}
+        onTabChange={setHubTab}
+        friendsInviteCount={friendsInviteCount}
+      >
+        {hubTab === 'play' ? (
+          <MatchSetup
+            targetScore={state.targetScore}
+            humanLoadout={state.humanLoadout}
+            playMode={playMode}
+            onlineAvailable={onlineAvailable}
+            joinCode={joinCode}
+            onlineBusy={Boolean(onlineSession)}
+            onlineError={lastError}
+            onPlayModeChange={setPlayMode}
+            onTargetChange={(target) => dispatch({ type: 'set_target', target })}
+            onLoadoutSlotChange={(slot, dieTypeId) =>
+              dispatch({ type: 'set_loadout_slot', slot, dieTypeId })
+            }
+            onFillLoadout={(dieTypeId) =>
+              dispatch({ type: 'fill_loadout', dieTypeId })
+            }
+            onFillRandomLoadout={() => dispatch({ type: 'fill_random_loadout' })}
+            onJoinCodeChange={(code) => setJoinCode(normalizeRoomCode(code))}
+            onStartSolo={() => dispatch({ type: 'start' })}
+            onCreateOnline={() => {
+              const code = generateRoomCode()
+              setOnlineSession(createOnlineSession(code, authToken))
+            }}
+            onJoinOnline={() => {
+              joinOnlineRoom(joinCode)
+            }}
+          />
+        ) : null}
+        {hubTab === 'inventory' ? (
+          <InventoryPanel onGoAccount={() => setHubTab('account')} />
+        ) : null}
+        {hubTab === 'friends' ? (
+          <FriendsPanel
+            onJoinRoom={joinOnlineRoom}
+            onGoAccount={() => setHubTab('account')}
+            onIncomingInviteCountChange={setFriendsInviteCount}
+          />
+        ) : null}
+        {hubTab === 'account' ? <AuthPanel /> : null}
+        {hubTab === 'guide' ? <GuidePanel state={state} /> : null}
+      </AppShell>
     )
   }
 
   return (
-    <div className="app">
+    <div className="app app-match">
       <ScoreBoard
         state={state}
         onRestart={() => dispatch({ type: 'restart' })}
@@ -394,8 +397,6 @@ export default function App() {
           onRestart={() => dispatch({ type: 'restart' })}
         />
       </main>
-
-      <LegendPanels state={state} />
     </div>
   )
 }

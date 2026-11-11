@@ -15,9 +15,16 @@ import {
 
 interface FriendsPanelProps {
   onJoinRoom: (roomCode: string) => void
+  onGoAccount?: () => void
+  /** Keep hub Friends-tab badge in sync. */
+  onIncomingInviteCountChange?: (count: number) => void
 }
 
-export function FriendsPanel({ onJoinRoom }: FriendsPanelProps) {
+export function FriendsPanel({
+  onJoinRoom,
+  onGoAccount,
+  onIncomingInviteCountChange,
+}: FriendsPanelProps) {
   const { user, token, apiAvailable } = useAuth()
   const [friends, setFriends] = useState<FriendsList | null>(null)
   const [invites, setInvites] = useState<InvitationsList | null>(null)
@@ -37,6 +44,7 @@ export function FriendsPanel({ onJoinRoom }: FriendsPanelProps) {
       ])
       setFriends(friendsList)
       setInvites(invitations)
+      onIncomingInviteCountChange?.(invitations.incoming.length)
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : 'Could not load friends.',
@@ -44,7 +52,7 @@ export function FriendsPanel({ onJoinRoom }: FriendsPanelProps) {
     } finally {
       setBusy(false)
     }
-  }, [token])
+  }, [token, onIncomingInviteCountChange])
 
   useEffect(() => {
     if (!user || !token) {
@@ -57,12 +65,27 @@ export function FriendsPanel({ onJoinRoom }: FriendsPanelProps) {
     return () => window.clearInterval(timer)
   }, [user, token, refresh])
 
-  if (!apiAvailable) return null
+  if (!apiAvailable) {
+    return (
+      <section className="hub-section friends-panel">
+        <h2 className="panel-title">Friends</h2>
+        <p className="setup-hint">
+          Friends need the API server. Set <code>VITE_API_URL</code> to enable
+          this tab.
+        </p>
+      </section>
+    )
+  }
   if (!user || !token) {
     return (
-      <section className="panel friends-panel">
+      <section className="hub-section friends-panel">
         <h2 className="panel-title">Friends</h2>
         <p className="setup-hint">Log in to add friends and send play invites.</p>
+        {onGoAccount ? (
+          <button type="button" className="btn primary" onClick={onGoAccount}>
+            Go to Account
+          </button>
+        ) : null}
       </section>
     )
   }
@@ -117,6 +140,7 @@ export function FriendsPanel({ onJoinRoom }: FriendsPanelProps) {
     try {
       const result = await sendPlayInvite(token, friendUserId)
       setInvites(result.invitations)
+      onIncomingInviteCountChange?.(result.invitations.incoming.length)
       setMessage(
         `Invite sent to ${friendName}. Joining room ${result.invitation.roomCode}…`,
       )
@@ -133,6 +157,7 @@ export function FriendsPanel({ onJoinRoom }: FriendsPanelProps) {
     try {
       const result = await respondToPlayInvite(token, invitationId, accept)
       setInvites(result.invitations)
+      onIncomingInviteCountChange?.(result.invitations.incoming.length)
       if (accept && result.roomCode) {
         setMessage(`Joining room ${result.roomCode}…`)
         onJoinRoom(result.roomCode)
@@ -147,7 +172,7 @@ export function FriendsPanel({ onJoinRoom }: FriendsPanelProps) {
   }
 
   return (
-    <section className="panel friends-panel">
+    <section className="hub-section friends-panel">
       <div className="inventory-header">
         <h2 className="panel-title">Friends</h2>
         <button

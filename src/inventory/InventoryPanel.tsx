@@ -56,7 +56,11 @@ function canAfford(
   })
 }
 
-export function InventoryPanel() {
+interface InventoryPanelProps {
+  onGoAccount?: () => void
+}
+
+export function InventoryPanel({ onGoAccount }: InventoryPanelProps) {
   const { user, token } = useAuth()
   const [inventory, setInventory] = useState<InventorySnapshot | null>(null)
   const [recipes, setRecipes] = useState<CraftRecipe[]>([])
@@ -93,7 +97,21 @@ export function InventoryPanel() {
     void refresh()
   }, [user, token, refresh])
 
-  if (!user || !token) return null
+  if (!user || !token) {
+    return (
+      <section className="hub-section inventory-panel">
+        <h2 className="panel-title">Inventory</h2>
+        <p className="setup-hint">
+          Log in to view materials, dice, badges, and crafting.
+        </p>
+        {onGoAccount ? (
+          <button type="button" className="btn primary" onClick={onGoAccount}>
+            Go to Account
+          </button>
+        ) : null}
+      </section>
+    )
+  }
 
   const onCraft = async (recipeId: string) => {
     setBusy(true)
@@ -116,7 +134,7 @@ export function InventoryPanel() {
   }
 
   return (
-    <section className="panel inventory-panel">
+    <section className="hub-section inventory-panel">
       <div className="inventory-header">
         <h2 className="panel-title">Inventory</h2>
         <button

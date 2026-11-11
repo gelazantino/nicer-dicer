@@ -41,8 +41,8 @@ export function MatchSetup({
   onJoinOnline,
 }: MatchSetupProps) {
   return (
-    <section className="panel setup">
-      <h1 className="brand">Nicer Dicer</h1>
+    <section className="hub-section setup">
+      <h2 className="panel-title">Play</h2>
       <p className="lede">
         Kingdom Come–style Farkle. Solo vs AI, or online 1v1 with a room code.
       </p>

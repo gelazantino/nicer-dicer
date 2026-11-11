@@ -9,7 +9,7 @@ export function AuthPanel() {
 
   if (!apiAvailable) {
     return (
-      <section className="panel auth-panel">
+      <section className="hub-section auth-panel">
         <h2 className="panel-title">Account</h2>
         <p className="setup-hint">
           Set <code>VITE_API_URL</code> (same host as the match server) to enable
@@ -21,8 +21,8 @@ export function AuthPanel() {
 
   if (user) {
     return (
-      <section className="panel auth-panel">
-        <h2 className="panel-title">Signed in</h2>
+      <section className="hub-section auth-panel">
+        <h2 className="panel-title">Account</h2>
         <p className="auth-user">
           Playing as <strong>{user.username}</strong>
         </p>
@@ -44,7 +44,7 @@ export function AuthPanel() {
   }
 
   return (
-    <section className="panel auth-panel">
+    <section className="hub-section auth-panel">
       <h2 className="panel-title">
         {mode === 'login' ? 'Log in' : 'Create account'}
       </h2>
